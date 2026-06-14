@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aerosky Hospitality — Event Management System</title>
+  <meta name="description" content="Professional Event Management & Catering System for Aerosky Hospitality. Manage events, staff coordination, vendor logistics, payments, and client portals.">
+  
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme logged-out">
+
+  <!-- ==========================================
+       LOGIN PAGE OVERLAY
+       ========================================== -->
+  <div class="login-overlay active" id="login-screen">
+    <div class="login-card">
+      <header class="login-header">
+        <img src="fash.jpeg" alt="Aerosky Hospitality Logo" class="login-logo" onerror="this.style.display='none'; document.getElementById('login-text-logo').style.display='block';">
+        <div id="login-text-logo" class="login-text-brand" style="display:none;">AEROSKY <span>HOSPITALITY</span></div>
+        <p class="login-subtitle">Event Management Portal</p>
+      </header>
+
+      <form id="form-login" class="login-form">
+        <!-- Credentials input fields -->
+        <div id="login-credentials-section">
+          <div class="form-group">
+            <label for="login-phone">Mobile Number</label>
+            <input type="tel" id="login-phone" class="form-control" placeholder="e.g. +91 98113 39509" required autocomplete="tel">
+            <small class="help-text" style="display: block; margin-top: 0.25rem; font-size: 11px; color: var(--text-muted);">Enter your registered number with country code (e.g. +91).</small>
+          </div>
+          
+          <button type="submit" class="btn btn-primary btn-block btn-login-submit" id="btn-login-submit">
+            <i class="ti ti-message-dots"></i> Send OTP Code
+          </button>
+        </div>
+
+        <!-- OTP verification fields (hidden by default) -->
+        <div id="login-otp-section" style="display: none;">
+          <div class="form-group">
+            <label for="login-otp">Enter 6-Digit OTP Code</label>
+            <input type="text" id="login-otp" class="form-control" placeholder="e.g. 123456" maxlength="6" autocomplete="one-time-code">
+            <small class="help-text" id="otp-phone-subtext">An SMS with the OTP has been sent to your registered mobile phone.</small>
+          </div>
+          
+          <button type="button" class="btn btn-primary btn-block" id="btn-verify-otp">
+            <i class="ti ti-circle-check"></i> Verify OTP & Log In
+          </button>
+          
+          <button type="button" class="btn btn-secondary btn-block" id="btn-cancel-otp" style="margin-top: 0.5rem;">
+            Cancel / Back
+          </button>
+        </div>
+      </form>
+
+      <div class="demo-divider">
+        <span>Or Quick Demo Connect</span>
+      </div>
+
+      <div class="demo-logins-grid">
+        <button type="button" class="btn btn-secondary btn-sm btn-demo" data-phone="+919811339509">
+          <i class="ti ti-shield"></i> Admin
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm btn-demo" data-phone="+919999888887">
+          <i class="ti ti-user"></i> Client (Ramesh)
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm btn-demo" data-phone="+919910022000">
+          <i class="ti ti-truck"></i> Vendor (Star Tent)
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm btn-demo" data-phone="+919811223344">
+          <i class="ti ti-users"></i> Staff (Rahul)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MAIN APP SHELL (Visible when logged in)
+       ========================================== -->
+  <div class="app-layout" id="main-app-layout">
+    
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+      <div class="header-brand">
+        <img src="fash.jpeg" alt="Aerosky Hospitality Logo" class="brand-logo" onerror="this.style.display='none'; document.getElementById('txt-logo-fallback').style.display='inline-block';">
+        <span id="txt-logo-fallback" class="text-logo" style="display:none;">AEROSKY <span>HOSPITALITY</span></span>
+        <span class="app-badge">EMS Console</span>
+      </div>
+
+      <div class="header-actions">
+        <!-- Display logged in user context -->
+        <div class="user-profile-pill" id="user-profile-pill">
+          <div class="user-pill-avatar" id="user-pill-avatar">A</div>
+          <div class="user-pill-info">
+            <span class="user-pill-name" id="user-pill-name">Loading...</span>
+            <span class="user-pill-badge" id="user-pill-role">Role</span>
+          </div>
+        </div>
+        
+        <button type="button" class="btn btn-secondary" id="btn-logout" title="Sign Out of Portal">
+          <i class="ti ti-logout"></i> Logout
+        </button>
+        
+        <button type="button" class="btn btn-secondary btn-icon" id="theme-toggle" title="Toggle Dark/Light Mode">
+          <i class="ti ti-sun"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- App Body containing Sidebar + Dynamic Views -->
+    <div class="app-body">
+      
+      <!-- ==========================================
+           1. ADMIN SIDEBAR (Visible only to Admin)
+           ========================================== -->
+      <aside class="admin-sidebar" id="admin-sidebar">
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-tab="overview">
+            <i class="ti ti-dashboard"></i> Overview Dashboard
+          </button>
+          <button class="nav-item" data-tab="events">
+            <i class="ti ti-calendar-event"></i> Event Management
+          </button>
+          <button class="nav-item" data-tab="staff">
+            <i class="ti ti-users"></i> Service Boys (Staff)
+          </button>
+          <button class="nav-item" data-tab="vendors">
+            <i class="ti ti-truck-delivery"></i> Vendor Logistics
+          </button>
+          <button class="nav-item" data-tab="issues">
+            <i class="ti ti-ticket"></i> Issues Inbox
+            <span class="sidebar-badge" id="issues-badge">0</span>
+          </button>
+        </nav>
+        
+        <div class="sidebar-footer">
+          <button type="button" class="btn btn-primary btn-block" id="btn-quick-event">
+            <i class="ti ti-plus"></i> New Event
+          </button>
+        </div>
+      </aside>
+
+      <!-- ==========================================
+           2. MAIN WORKSPACE / VIEWS CONTAINER
+           ========================================== -->
+      <main class="workspace-viewport">
+        
+        <!-- ==========================================
+             A. SUPER ADMIN VIEW
+             ========================================== -->
+        <div class="portal-view" id="view-admin">
+          
+          <!-- OVERVIEW TAB -->
+          <section class="tab-panel active" id="panel-overview">
+            <div class="tab-header">
+              <h1>System Overview Dashboard</h1>
+              <p>Key metrics, financial status, and build progress summaries.</p>
+            </div>
+
+            <!-- KPI Cards Grid -->
+            <div class="kpi-grid">
+              <div class="kpi-card income">
+                <div class="kpi-header">
+                  <span class="kpi-label">Client Revenue</span>
+                  <i class="ti ti-arrow-up-right kpi-icon"></i>
+                </div>
+                <div class="kpi-value" id="kpi-revenue">₹0.00</div>
+                <div class="kpi-subtext" id="kpi-revenue-sub">₹0.00 outstanding</div>
+              </div>
+
+              <div class="kpi-card cost">
+                <div class="kpi-header">
+                  <span class="kpi-label">Vendor Expenses</span>
+                  <i class="ti ti-arrow-down-left kpi-icon"></i>
+                </div>
+                <div class="kpi-value" id="kpi-vendor-costs">₹0.00</div>
+                <div class="kpi-subtext" id="kpi-vendor-sub">₹0.00 unpaid invoices</div>
+              </div>
+
+              <div class="kpi-card payroll">
+                <div class="kpi-header">
+                  <span class="kpi-label">Staff Payroll (Service Boys)</span>
+                  <i class="ti ti-users-group kpi-icon"></i>
+                </div>
+                <div class="kpi-value" id="kpi-staff-costs">₹0.00</div>
+                <div class="kpi-subtext" id="kpi-staff-sub">₹0.00 pending payouts</div>
+              </div>
+
+              <div class="kpi-card margin">
+                <div class="kpi-header">
+                  <span class="kpi-label">Net Operating Margin</span>
+                  <i class="ti ti-coin kpi-icon"></i>
+                </div>
+                <div class="kpi-value" id="kpi-margin">₹0.00</div>
+                <div class="kpi-subtext" id="kpi-margin-pct">0% margin rate</div>
+              </div>
+            </div>
+
+            <!-- Dashboard Split Layout -->
+            <div class="dash-split">
+              <!-- Left side: Live build checklist progress -->
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>Build & Security Progress</h2>
+                  <span class="badge badge-gold" id="checklist-pct">0%</span>
+                </div>
+                <div class="prog-wrapper">
+                  <div class="prog-bar" id="checklist-bar" style="width: 0%;"></div>
+                </div>
+                <div class="checklist-summary-row">
+                  <div><strong>Total Tasks:</strong> <span id="chk-total">0</span></div>
+                  <div><strong>Done:</strong> <span id="chk-done">0</span></div>
+                  <div><strong>Remaining:</strong> <span id="chk-rem">0</span></div>
+                </div>
+                
+                <div class="checklist-mini-view" id="checklist-mini-list">
+                  <!-- Javascript updates with build items -->
+                </div>
+              </div>
+
+              <!-- Right side: Recent events and quick ledger -->
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>Active Events Summary</h2>
+                  <button class="btn btn-secondary btn-sm" id="btn-view-all-events">View All</button>
+                </div>
+                <div class="events-mini-list" id="events-mini-list">
+                  <!-- Javascript renders dynamic list of events -->
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- EVENTS TAB -->
+          <section class="tab-panel" id="panel-events">
+            <div class="tab-header-flex">
+              <div>
+                <h1>Event Management</h1>
+                <p>Register and configure event venues, assign staff, link vendors, and track status.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-add-event"><i class="ti ti-plus"></i> Add Event</button>
+            </div>
+
+            <div class="filter-bar">
+              <input type="text" id="search-events" class="form-control inline" placeholder="Search events...">
+              <select id="filter-event-status" class="form-control inline">
+                <option value="all">All Statuses</option>
+                <option value="planning">Planning Phase</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            <div class="data-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Event Details</th>
+                    <th>Date & Venue</th>
+                    <th>Client info</th>
+                    <th>Budget Summary</th>
+                    <th>Staff Assigned</th>
+                    <th>Status</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-events-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- STAFF (SERVICE BOYS) TAB -->
+          <section class="tab-panel" id="panel-staff">
+            <div class="tab-header-flex">
+              <div>
+                <h1>Service Boys (Staff Directory)</h1>
+                <p>Manage on-field catering crew, waiters, helpers, daily wages, and track event assignments.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-add-staff"><i class="ti ti-plus"></i> Add Service Boy</button>
+            </div>
+
+            <div class="data-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Staff Name & ID</th>
+                    <th>Phone</th>
+                    <th>Default Role</th>
+                    <th>Daily Rate</th>
+                    <th>Active Assignments</th>
+                    <th>Total Earnings</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-staff-body">
+                  <!-- Dynamic -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- VENDORS TAB -->
+          <section class="tab-panel" id="panel-vendors">
+            <div class="tab-header-flex">
+              <div>
+                <h1>Vendor Logistics</h1>
+                <p>Manage third-party decorators, tent vendors, sound technicians, and supplier ledgers.</p>
+              </div>
+              <button class="btn btn-primary" id="btn-add-vendor"><i class="ti ti-plus"></i> Add Vendor</button>
+            </div>
+
+            <div class="data-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Vendor Name</th>
+                    <th>Category</th>
+                    <th>Contact Info</th>
+                    <th>Assigned Projects</th>
+                    <th>Total Invoiced</th>
+                    <th>Paid Balance</th>
+                    <th>Pending Due</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-vendors-body">
+                  <!-- Dynamic -->
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- ISSUES TAB -->
+          <section class="tab-panel" id="panel-issues">
+            <div class="tab-header">
+              <h1>Client Issues Inbox</h1>
+              <p>Resolve tickets raised by clients in real-time. Uploaded issue media and comments logged here.</p>
+            </div>
+
+            <div class="issues-inbox-grid" id="issues-inbox-list">
+              <!-- Dynamically populated -->
+            </div>
+          </section>
+
+        </div>
+
+
+        <!-- ==========================================
+             B. CLIENT PORTAL VIEW
+             ========================================== -->
+        <div class="portal-view" id="view-client">
+          <div class="client-portal-header">
+            <div class="welcome-text">
+              <h1>Client Command Portal</h1>
+              <p>Monitor your events, review assigned staff crew, and track payments.</p>
+            </div>
+          </div>
+
+          <div class="client-dashboard-grid">
+            <!-- Left Side: Event Details & Staff Directory -->
+            <div class="client-left-col">
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>My Events Status</h2>
+                </div>
+                <div class="client-events-list" id="client-events-list">
+                  <!-- Renders current client's events -->
+                </div>
+              </div>
+
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>Assigned Service Boy Team</h2>
+                  <span class="subtitle">On-site coordination staff details</span>
+                </div>
+                <div class="client-staff-grid" id="client-staff-team">
+                  <!-- Client assigned staff roster (Names & Phones only for compliance) -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Side: Financial Invoices & Issue Reporting -->
+            <div class="client-right-col">
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>Payment & Invoicing Summary</h2>
+                </div>
+                <div class="client-invoice-block" id="client-finance-summary">
+                  <!-- Client budget, paid, outstanding balance list -->
+                </div>
+              </div>
+
+              <div class="dash-card">
+                <div class="card-header">
+                  <h2>Report an Issue / Request Support</h2>
+                </div>
+                <form id="form-report-issue" class="issue-report-form">
+                  <div class="form-group">
+                    <label for="issue-event-id">Select Event</label>
+                    <select id="issue-event-id" class="form-control" required>
+                      <!-- Client's events -->
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="issue-description">Description of Issue</label>
+                    <textarea id="issue-description" class="form-control" rows="3" placeholder="Describe the issue on-site (e.g. Catering short staff, broken decor item...)" required></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Upload Live Photos</label>
+                    <div class="file-uploader-box" onclick="document.getElementById('issue-file-upload').click()">
+                      <i class="ti ti-camera"></i>
+                      <span>Select or Capture Images (JPG/PNG)</span>
+                      <input type="file" id="issue-file-upload" style="display:none;" accept="image/*" multiple>
+                    </div>
+                    <div class="preview-upload-thumbnails" id="upload-thumbnails"></div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-block"><i class="ti ti-send"></i> Submit Ticket</button>
+                </form>
+
+                <hr class="card-divider">
+                <h3>Support Tickets History</h3>
+                <div class="client-issues-list" id="client-issues-list">
+                  <!-- Client's issues -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ==========================================
+             C. VENDOR PORTAL VIEW
+             ========================================== -->
+        <div class="portal-view" id="view-vendor">
+          <div class="portal-top-bar">
+            <div>
+              <h1>Vendor Portal</h1>
+              <p>Operational ledger, invoice tracking, and assigned delivery timelines.</p>
+            </div>
+          </div>
+
+          <div class="vendor-grid">
+            <div class="vendor-kpis">
+              <div class="vkpi-card">
+                <span class="vkpi-label">Total Jobs Contracted</span>
+                <span class="vkpi-value" id="vendor-stat-jobs">0</span>
+              </div>
+              <div class="vkpi-card">
+                <span class="vkpi-label">Total Invoiced Billing</span>
+                <span class="vkpi-value" id="vendor-stat-invoiced">₹0.00</span>
+              </div>
+              <div class="vkpi-card success">
+                <span class="vkpi-label">Payments Received</span>
+                <span class="vkpi-value" id="vendor-stat-paid">₹0.00</span>
+              </div>
+              <div class="vkpi-card warning">
+                <span class="vkpi-label">Outstanding Balance Due</span>
+                <span class="vkpi-value" id="vendor-stat-due">₹0.00</span>
+              </div>
+            </div>
+
+            <div class="dash-card">
+              <div class="card-header">
+                <h2>Assigned Deliveries & Scope Log</h2>
+              </div>
+              <div class="data-table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Event Reference</th>
+                      <th>Supply Description</th>
+                      <th>Contract Price</th>
+                      <th>Payment Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-vendor-orders-body">
+                    <!-- Dynamic -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- ==========================================
+             D. SERVICE BOY PORTAL VIEW
+             ========================================== -->
+        <div class="portal-view" id="view-service-boy">
+          <div class="portal-top-bar">
+            <div>
+              <h1>Service Boy Portal</h1>
+              <p>Mobile-first dashboard for coordinate crew check-in and payroll verification.</p>
+            </div>
+          </div>
+
+          <!-- Smartphone Mockup Wrapper -->
+          <div class="mobile-frame-container">
+            <div class="mobile-frame">
+              <div class="mobile-screen">
+                <!-- Mobile App Header -->
+                <header class="mobile-header">
+                  <div class="mobile-wifi-row">
+                    <span>9:41</span>
+                    <div class="wifi-icons">
+                      <i class="ti ti-wifi"></i>
+                      <i class="ti ti-battery-4"></i>
+                    </div>
+                  </div>
+                  <div class="mobile-user-card">
+                    <div class="avatar-circle" id="sb-mobile-avatar">AS</div>
+                    <div>
+                      <h2 class="mobile-username" id="sb-mobile-name">Akash Sharma</h2>
+                      <span class="mobile-userid" id="sb-mobile-id">Staff ID: SB-901</span>
+                    </div>
+                  </div>
+                </header>
+
+                <div class="mobile-content">
+                  <!-- Attendance Check-in Widget -->
+                  <div class="mobile-widget accent-widget">
+                    <span class="widget-label">Today's Check-In Status</span>
+                    <div class="checkin-row">
+                      <span class="checkin-status" id="sb-mobile-checkin-status">Not Logged</span>
+                      <button class="btn btn-sm btn-primary" id="btn-sb-checkin" style="background:#fff; color:#0a5c36; font-weight:700;">Check Attendance</button>
+                    </div>
+                  </div>
+
+                  <!-- Earnings summary -->
+                  <div class="mobile-earnings-summary">
+                    <div class="earn-box">
+                      <span class="earn-label">Daily Wage</span>
+                      <span class="earn-val" id="sb-mobile-rate">₹0</span>
+                    </div>
+                    <div class="earn-box">
+                      <span class="earn-label">Days Worked</span>
+                      <span class="earn-val" id="sb-mobile-days">0</span>
+                    </div>
+                    <div class="earn-box">
+                      <span class="earn-label">Total Earned</span>
+                      <span class="earn-val" id="sb-mobile-total">₹0</span>
+                    </div>
+                  </div>
+
+                  <!-- Assignment list -->
+                  <h3 class="mobile-section-heading">My Duty Schedule</h3>
+                  <div class="mobile-duty-list" id="sb-mobile-duty-list">
+                    <!-- Dynamic duty cards list -->
+                  </div>
+                </div>
+
+                <!-- Mobile Navigation Bar -->
+                <nav class="mobile-navbar">
+                  <button class="mobile-nav-btn active"><i class="ti ti-home"></i><span>Home</span></button>
+                  <button class="mobile-nav-btn"><i class="ti ti-calendar"></i><span>Schedule</span></button>
+                  <button class="mobile-nav-btn"><i class="ti ti-wallet"></i><span>Payouts</span></button>
+                </nav>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL WINDOWS & FORMS
+       ========================================================================== -->
+
+  <!-- 1. Add Event Modal -->
+  <div class="modal-overlay" id="modal-event">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Add New Event</h2>
+        <button class="btn-close-modal" onclick="closeModal('modal-event')">&times;</button>
+      </div>
+      <form id="form-add-event" class="modal-form">
+        <div class="form-group">
+          <label for="event-name">Event Name / Occasion</label>
+          <input type="text" id="event-name" class="form-control" placeholder="e.g. Wedding Reception - Aggarwal Family" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="event-date">Event Date</label>
+            <input type="date" id="event-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="event-venue">Venue / Address</label>
+            <input type="text" id="event-venue" class="form-control" placeholder="e.g. Mor Bagh, Chhattarpur" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="event-client-name">Client Name</label>
+            <input type="text" id="event-client-name" class="form-control" placeholder="e.g. Ramesh Aggarwal" required>
+          </div>
+          <div class="form-group">
+            <label for="event-client-phone">Client Phone</label>
+            <input type="text" id="event-client-phone" class="form-control" placeholder="e.g. +91 99998 88887" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="event-client-email">Client Email</label>
+            <input type="email" id="event-client-email" class="form-control" placeholder="e.g. ramesh@gmail.com" required>
+          </div>
+          <div class="form-group">
+            <label for="event-budget">Client Contract Budget (₹)</label>
+            <input type="number" id="event-budget" class="form-control" min="0" placeholder="e.g. 500000" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-event')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Event</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. Add Service Boy Modal -->
+  <div class="modal-overlay" id="modal-staff">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Add Service Boy (Crew Member)</h2>
+        <button class="btn-close-modal" onclick="closeModal('modal-staff')">&times;</button>
+      </div>
+      <form id="form-add-staff" class="modal-form">
+        <div class="form-group">
+          <label for="staff-name">Full Name</label>
+          <input type="text" id="staff-name" class="form-control" placeholder="e.g. Rahul Sharma" required>
+        </div>
+        <div class="form-group">
+          <label for="staff-phone">Phone Number</label>
+          <input type="text" id="staff-phone" class="form-control" placeholder="e.g. +91 98112 23344" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="staff-role">Default Assignment Role</label>
+            <select id="staff-role" class="form-control">
+              <option value="Chef">Chef</option>
+              <option value="Helper">Kitchen Helper</option>
+              <option value="Dishwasher">Dishwasher</option>
+              <option value="Tandoor">Tandoor Specialist</option>
+              <option value="Waiter">Waiter / Buffet Server</option>
+              <option value="Site Manager">Site Assistant Manager</option>
+              <option value="Service Boy">General Service Boy</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="staff-rate">Daily Rate (₹)</label>
+            <input type="number" id="staff-rate" class="form-control" min="0" placeholder="e.g. 800" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-staff')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Staff Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. Add Vendor Modal -->
+  <div class="modal-overlay" id="modal-vendor">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Add Vendor Supplier</h2>
+        <button class="btn-close-modal" onclick="closeModal('modal-vendor')">&times;</button>
+      </div>
+      <form id="form-add-vendor" class="modal-form">
+        <div class="form-group">
+          <label for="vendor-name">Company / Vendor Name</label>
+          <input type="text" id="vendor-name" class="form-control" placeholder="e.g. Pioneer Audio & AV Rentals" required>
+        </div>
+        <div class="form-group">
+          <label for="vendor-category">Service Category</label>
+          <select id="vendor-category" class="form-control">
+            <option value="Tent & Fabrication">Tent & Fabrication</option>
+            <option value="Decor & Flowers">Floral & Decor Design</option>
+            <option value="Catering Supplies">Catering Supplies / Crockery</option>
+            <option value="Sound & AV">Audio, Visual & LED Walls</option>
+            <option value="Power Generator">Power Backup / Genset</option>
+            <option value="Valet Parking">Valet Parking Crew</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="vendor-phone">Contact Phone</label>
+            <input type="text" id="vendor-phone" class="form-control" placeholder="e.g. +91 99100 22000" required>
+          </div>
+          <div class="form-group">
+            <label for="vendor-email">Contact Email</label>
+            <input type="email" id="vendor-email" class="form-control" placeholder="e.g. info@pioneerav.com" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-vendor')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Vendor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. Assign Staff/Vendor Modal (Dynamic details) -->
+  <div class="modal-overlay" id="modal-assign-detail">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Manage Event Operations: <span id="assign-event-title">Event</span></h2>
+        <button class="btn-close-modal" onclick="closeModal('modal-assign-detail')">&times;</button>
+      </div>
+      
+      <div class="assign-tabs">
+        <button class="assign-tab active" data-tab="tab-staff-assign">Staff Roster (Wages)</button>
+        <button class="assign-tab" data-tab="tab-vendor-assign">Vendor Logistics</button>
+        <button class="assign-tab" data-tab="tab-payments-assign">Payments Tracker</button>
+      </div>
+
+      <!-- TAB: ASSIGN STAFF -->
+      <div class="assign-tab-content active" id="tab-staff-assign">
+        <form id="form-assign-staff" class="modal-form-inline">
+          <div class="form-row-three">
+            <select id="assign-staff-id" class="form-control" required>
+              <!-- Populated dynamically -->
+            </select>
+            <select id="assign-staff-role" class="form-control" required>
+              <option value="Chef">Chef</option>
+              <option value="Helper">Kitchen Helper</option>
+              <option value="Waiter">Waiter</option>
+              <option value="Tandoor">Tandoor Specialist</option>
+              <option value="Dishwasher">Dishwasher</option>
+              <option value="Site Manager">Site Assistant Manager</option>
+            </select>
+            <input type="number" id="assign-staff-days" class="form-control" placeholder="Days Worked" min="1" value="1" required>
+            <button type="submit" class="btn btn-primary">Add Staff</button>
+          </div>
+        </form>
+
+        <div class="assigned-table-list">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Staff Name</th>
+                <th>Assigned Role</th>
+                <th>Days</th>
+                <th>Attendance</th>
+                <th>Wages Paid</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assigned-staff-table-body">
+              <!-- Dynamically rendered -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: LINK VENDORS -->
+      <div class="assign-tab-content" id="tab-vendor-assign">
+        <form id="form-assign-vendor" class="modal-form-inline">
+          <div class="form-row-three">
+            <select id="assign-vendor-id" class="form-control" required>
+              <!-- Populated dynamically -->
+            </select>
+            <input type="text" id="assign-vendor-desc" class="form-control" placeholder="Delivery Description (e.g. LED screen 30x10)" required>
+            <input type="number" id="assign-vendor-price" class="form-control" placeholder="Agreed Cost (₹)" min="0" required>
+            <button type="submit" class="btn btn-primary">Link Vendor</button>
+          </div>
+        </form>
+
+        <div class="assigned-table-list">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Scope Description</th>
+                <th>Contract Price</th>
+                <th>Payment Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="assigned-vendor-table-body">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB: PAYMENTS TRACKER -->
+      <div class="assign-tab-content" id="tab-payments-assign">
+        <form id="form-log-payment" class="modal-form-inline">
+          <div class="form-row-three">
+            <select id="payment-target-type" class="form-control" required>
+              <option value="client">Client Payment Received (Income)</option>
+              <option value="vendor">Vendor Invoice Payment (Expense)</option>
+              <option value="staff">Staff Wage Payout (Expense)</option>
+            </select>
+            <select id="payment-recipient-select" class="form-control" required>
+              <!-- Contextually loaded -->
+            </select>
+            <input type="number" id="payment-amount" class="form-control" placeholder="Transaction Amount (₹)" min="1" required>
+            <button type="submit" class="btn btn-primary">Log Payment</button>
+          </div>
+        </form>
+
+        <div class="assigned-table-list">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Transaction Category</th>
+                <th>Entity / Recipient</th>
+                <th class="text-right">Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody id="assigned-payments-table-body">
+              <!-- Dynamic -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-assign-detail')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase App & Auth SDKs (Compat Version) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <!-- invisible reCAPTCHA container -->
+  <div id="recaptcha-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

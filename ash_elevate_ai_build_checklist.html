@@ -1,0 +1,308 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.wrap{padding:1rem 0;}
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:0.5px solid var(--color-border-tertiary);}
+.brand{font-size:18px;font-weight:500;color:var(--color-text-primary);}
+.brand span{color:#534AB7;}
+.summary-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:1.25rem;}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.7rem 1rem;}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;}
+.stat-value{font-size:20px;font-weight:500;color:var(--color-text-primary);}
+.stat-value.done{color:#1D9E75;}
+.prog-wrap{background:var(--color-background-secondary);border-radius:20px;height:7px;margin-bottom:1.25rem;overflow:hidden;}
+.prog-bar{height:100%;background:#534AB7;border-radius:20px;transition:width 0.4s ease;}
+.filter-row{display:flex;gap:6px;margin-bottom:1.25rem;flex-wrap:wrap;}
+.fb{font-size:12px;padding:4px 11px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);cursor:pointer;}
+.fb:hover{background:var(--color-background-secondary);}
+.fb.active{background:var(--color-background-primary);color:var(--color-text-primary);border-color:var(--color-border-primary);font-weight:500;}
+.phase-label{font-size:11px;font-weight:500;letter-spacing:0.04em;color:var(--color-text-secondary);text-transform:uppercase;margin:1.5rem 0 0.5rem;padding-left:2px;}
+.section{margin-bottom:1rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
+.sh{display:flex;align-items:center;gap:9px;padding:0.7rem 1rem;cursor:pointer;background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);user-select:none;}
+.sh:hover{background:var(--color-background-secondary);}
+.sh-icon{font-size:17px;}
+.sh-title{font-size:14px;font-weight:500;color:var(--color-text-primary);flex:1;}
+.sh-phase{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500;}
+.ph-1{background:#EEEDFE;color:#3C3489;}
+.ph-2{background:#E6F1FB;color:#0C447C;}
+.ph-3{background:#EAF3DE;color:#27500A;}
+.ph-4{background:#FAEEDA;color:#633806;}
+.ph-5{background:#E1F5EE;color:#085041;}
+.sh-badge{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);}
+.sh-badge.all-done{background:#E1F5EE;color:#0F6E56;}
+.chevron{font-size:13px;color:var(--color-text-secondary);transition:transform 0.2s;}
+.chevron.open{transform:rotate(180deg);}
+.items{display:none;}
+.items.open{display:block;}
+.item{display:flex;align-items:flex-start;gap:9px;padding:0.6rem 1rem;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:background 0.1s;}
+.item:last-child{border-bottom:none;}
+.item:hover{background:var(--color-background-secondary);}
+.item.checked{opacity:0.55;}
+.chk{width:17px;height:17px;border:1.5px solid var(--color-border-secondary);border-radius:4px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;}
+.item.checked .chk{background:#534AB7;border-color:#534AB7;}
+.item.checked .chk::after{content:'✓';font-size:10px;color:white;font-weight:700;}
+.item-text{flex:1;}
+.item-label{font-size:13px;color:var(--color-text-primary);line-height:1.45;}
+.item.checked .item-label{text-decoration:line-through;color:var(--color-text-secondary);}
+.item-meta{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:20px;font-weight:500;margin-left:5px;vertical-align:middle;}
+.t-critical{background:#FCEBEB;color:#A32D2D;}
+.t-high{background:#FAEEDA;color:#854F0B;}
+.t-medium{background:#E6F1FB;color:#185FA5;}
+.t-security{background:#EEEDFE;color:#3C3489;}
+.t-feature{background:#E1F5EE;color:#085041;}
+.export-btn{margin-top:1rem;font-size:12px;padding:6px 14px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-primary);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.export-btn:hover{background:var(--color-background-secondary);}
+</style>
+
+<h2 class="sr-only">ASH ELEVATE AI — step by step build checklist covering architecture, features, security, and launch</h2>
+<div class="wrap">
+  <div class="top-bar">
+    <i class="ti ti-calendar-event" style="font-size:22px;color:#534AB7;" aria-hidden="true"></i>
+    <div>
+      <div class="brand">ASH <span>ELEVATE AI</span></div>
+      <div style="font-size:12px;color:var(--color-text-secondary);">Event management system — build & security checklist</div>
+    </div>
+  </div>
+
+  <div class="summary-bar">
+    <div class="stat"><div class="stat-label">Total tasks</div><div class="stat-value" id="totalStat">0</div></div>
+    <div class="stat"><div class="stat-label">Completed</div><div class="stat-value done" id="doneStat">0</div></div>
+    <div class="stat"><div class="stat-label">Remaining</div><div class="stat-value" id="remStat">0</div></div>
+    <div class="stat"><div class="stat-label">Progress</div><div class="stat-value" id="pctStat">0%</div></div>
+  </div>
+  <div class="prog-wrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
+
+  <div class="filter-row" id="filterRow">
+    <button class="fb active" data-f="all">All</button>
+    <button class="fb" data-f="ph-1">Phase 1 — Foundation</button>
+    <button class="fb" data-f="ph-2">Phase 2 — Core modules</button>
+    <button class="fb" data-f="ph-3">Phase 3 — Portals</button>
+    <button class="fb" data-f="ph-4">Phase 4 — Advanced</button>
+    <button class="fb" data-f="ph-5">Phase 5 — Security & launch</button>
+    <button class="fb" data-f="security">Security only</button>
+    <button class="fb" data-f="remaining">Remaining</button>
+  </div>
+
+  <div id="sections"></div>
+  <button class="export-btn" id="expBtn"><i class="ti ti-download" aria-hidden="true"></i> Export checklist</button>
+</div>
+
+<script>
+const sections=[
+  {id:"s1",phase:"ph-1",phaseLabel:"Phase 1 — Foundation & architecture",icon:"ti-layout-grid",title:"Project architecture & tech stack",items:[
+    {id:"a1",label:"Define tech stack: backend (Node.js/Laravel/Django), frontend (React/Vue), database (PostgreSQL/MySQL)",meta:"Match team skills — Node + React is a solid choice for this scope",tags:["feature"]},
+    {id:"a2",label:"Set up monorepo or separate repos for admin, client portal, vendor portal, service-boy portal",meta:"Each portal is a separate frontend app sharing one backend API",tags:["feature"]},
+    {id:"a3",label:"Design the full database schema: Events, Clients, Vendors, ServiceBoys, Assignments, Payments, Issues",meta:"Get this right before writing a single line of app code",tags:["feature"]},
+    {id:"a4",label:"Define all user roles: Super Admin, Client, Vendor, Service Boy — and their permission matrix",meta:"RBAC must be decided upfront — retrofitting it is painful",tags:["security","critical"]},
+    {id:"a5",label:"Choose cloud hosting: AWS / GCP / Azure / DigitalOcean + CDN for image uploads",meta:"India-hosted or with India region preferred for DPDPA compliance",tags:["feature"]},
+    {id:"a6",label:"Set up CI/CD pipeline (GitHub Actions / GitLab CI) with staging and production environments",meta:"Never deploy directly to production",tags:["feature"]},
+    {id:"a7",label:"Set up environment variable management — never hardcode secrets in code",meta:"Use .env locally; use secrets manager (AWS Secrets Manager / Doppler) in production",tags:["security","critical"]},
+    {id:"a8",label:"Set up HTTPS / TLS on all environments from day one",meta:"Never develop or stage on plain HTTP",tags:["security","critical"]},
+  ]},
+  {id:"s2",phase:"ph-1",phaseLabel:"Phase 1 — Foundation & architecture",icon:"ti-database",title:"Database design & data models",items:[
+    {id:"db1",label:"Events table: event name, date, venue, client ID, status, created/updated timestamps",meta:"Core entity everything else links to",tags:["feature"]},
+    {id:"db2",label:"Clients table: name, contact, email, total paid, pending amount, event IDs",meta:"",tags:["feature"]},
+    {id:"db3",label:"Vendors table: name, contact, service/material category, payment terms, invoice history",meta:"",tags:["feature"]},
+    {id:"db4",label:"ServiceBoys table: name, phone, role (chef/helper/dishwasher/tandoor/waiter/site manager/service boy), daily rate",meta:"Role and daily rate are the key fields for payroll",tags:["feature"]},
+    {id:"db5",label:"Assignments table: service boy ID, event ID, role for that event, days worked, total earned",meta:"One service boy can have multiple assignments across events",tags:["feature"]},
+    {id:"db6",label:"Payments table: entity type (client/vendor/serviceboy), entity ID, amount, type (advance/final/partial), date, status",meta:"Unified payments table simplifies reporting",tags:["feature"]},
+    {id:"db7",label:"Issues table: client ID, event ID, description, image URLs, status (open/in-progress/resolved), created at",meta:"Feeds directly into the admin issues tab",tags:["feature"]},
+    {id:"db8",label:"Encrypt sensitive columns at rest (phone numbers, payment amounts) and use DB-level access controls",meta:"DB user for the app should have minimum required permissions only",tags:["security","high"]},
+  ]},
+  {id:"s3",phase:"ph-2",phaseLabel:"Phase 2 — Core backend modules",icon:"ti-server",title:"Backend API — authentication & security layer",items:[
+    {id:"au1",label:"Build JWT-based authentication with refresh tokens for all four portal types",meta:"Access token: 15 min expiry. Refresh token: 7 days, stored HTTP-only cookie",tags:["security","critical"]},
+    {id:"au2",label:"Implement role-based access control middleware — every route checks role before processing",meta:"Admin route ≠ Client route ≠ Vendor route ≠ ServiceBoy route",tags:["security","critical"]},
+    {id:"au3",label:"Rate-limit all login endpoints — max 5 attempts then 15-min lockout",meta:"Prevents brute force on portal logins",tags:["security","critical"]},
+    {id:"au4",label:"Validate and sanitise all API inputs server-side — use a schema validation library (Zod / Joi / Yup)",meta:"Never trust client-submitted data",tags:["security","critical"]},
+    {id:"au5",label:"Use parameterised queries / ORM everywhere — zero raw SQL string concatenation",meta:"SQL injection prevention is non-negotiable",tags:["security","critical"]},
+    {id:"au6",label:"Add CSRF protection on all state-changing endpoints",meta:"Especially for portal forms",tags:["security","high"]},
+    {id:"au7",label:"Set security headers: HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy",meta:"One middleware function handles all of these",tags:["security","high"]},
+    {id:"au8",label:"Hash all passwords with bcrypt (cost factor ≥ 12) — never MD5 or plain SHA",meta:"",tags:["security","critical"]},
+    {id:"au9",label:"Build an audit log table — every sensitive action (payment record, role change, issue status) logs user+timestamp",meta:"Essential for admin accountability",tags:["security","high"]},
+  ]},
+  {id:"s4",phase:"ph-2",phaseLabel:"Phase 2 — Core backend modules",icon:"ti-tools-kitchen-2",title:"Service boy management module",items:[
+    {id:"sb1",label:"CRUD for service boys: add, edit, deactivate (never hard delete)",meta:"Soft delete preserves historical assignment records",tags:["feature"]},
+    {id:"sb2",label:"Assign service boy to event with a specific role and date range",meta:"One boy can hold different roles at different events",tags:["feature"]},
+    {id:"sb3",label:"Auto-calculate daily wages: days worked × daily rate per role",meta:"Rate can differ per role — store rate at time of assignment, not just current rate",tags:["feature"]},
+    {id:"sb4",label:"Mark days present/absent per assignment — attendance tracker",meta:"Payment only for days marked present",tags:["feature"]},
+    {id:"sb5",label:"Payment disbursement: record cash/UPI payment to service boy, mark as paid",meta:"Track partial vs full payment",tags:["feature"]},
+    {id:"sb6",label:"Service boy portal: view own assignments, days worked, earnings, payment status",meta:"Read-only portal — they cannot edit assignments",tags:["feature"]},
+    {id:"sb7",label:"Ensure service boy portal only shows their own data — strict user ID scoping on every query",meta:"IDOR: service boy A must never be able to see boy B's earnings",tags:["security","critical"]},
+  ]},
+  {id:"s5",phase:"ph-2",phaseLabel:"Phase 2 — Core backend modules",icon:"ti-truck-delivery",title:"Vendor management module",items:[
+    {id:"v1",label:"CRUD for vendors: name, category (catering supplies, decor, AV, tent, etc.), contact, bank/UPI details",meta:"",tags:["feature"]},
+    {id:"v2",label:"Link vendor to event: what service/material was provided, quantity, agreed price",meta:"Each vendor-event link is a VendorOrder record",tags:["feature"]},
+    {id:"v3",label:"Record vendor invoices and payment status: pending / partial / paid",meta:"",tags:["feature"]},
+    {id:"v4",label:"Vendor portal: view their own orders across events, invoice amounts, payment received vs pending",meta:"Read-only view of their financial relationship with ASH ELEVATE",tags:["feature"]},
+    {id:"v5",label:"Ensure vendor portal queries are scoped to vendor ID — no cross-vendor data leakage",meta:"Same IDOR protection as service boys",tags:["security","critical"]},
+    {id:"v6",label:"Admin can add notes or flag disputes on vendor payments",meta:"",tags:["feature"]},
+  ]},
+  {id:"s6",phase:"ph-2",phaseLabel:"Phase 2 — Core backend modules",icon:"ti-coin",title:"Payment & financial tracking module",items:[
+    {id:"py1",label:"Client payment tracking: total event cost, advance paid, balance pending, payment history",meta:"Show clear breakdown on both admin and client portal",tags:["feature"]},
+    {id:"py2",label:"Record multiple partial payments from a client against one event",meta:"Advance → mid-event payment → final settlement flow",tags:["feature"]},
+    {id:"py3",label:"Generate a payment summary report per event: income, vendor costs, service boy wages, net margin",meta:"Admin's financial overview",tags:["feature"]},
+    {id:"py4",label:"All financial records are append-only — never edit or delete a payment record",meta:"Corrections go as a new adjustment entry with reason",tags:["security","high"]},
+    {id:"py5",label:"UPI / payment gateway integration for client advance collection (Razorpay / PayU)",meta:"Webhook-based confirmation — never trust only the redirect",tags:["feature","high"]},
+    {id:"py6",label:"Validate webhook signatures from payment gateway before updating payment status",meta:"Prevents fake payment confirmations",tags:["security","critical"]},
+  ]},
+  {id:"s7",phase:"ph-3",phaseLabel:"Phase 3 — Portals",icon:"ti-layout-dashboard",title:"Admin portal — full command centre",items:[
+    {id:"ad1",label:"Dashboard: upcoming events, active service boys today, pending payments (clients + vendors), open issues count",meta:"Single-screen health check for the owner",tags:["feature"]},
+    {id:"ad2",label:"Event management: create event, assign service boys, link vendors, set budget, track status",meta:"",tags:["feature"]},
+    {id:"ad3",label:"Staff overview: all service boys, their current assignment, role, days worked this month, earnings",meta:"",tags:["feature"]},
+    {id:"ad4",label:"Vendor ledger: all vendors, what they supplied per event, payment status",meta:"",tags:["feature"]},
+    {id:"ad5",label:"Issues inbox tab: all client-submitted issues with images, status filter (open/resolved), ability to update status",meta:"This is the dedicated admin issues tab requested",tags:["feature"]},
+    {id:"ad6",label:"Financial reports: export to PDF/Excel — event-wise P&L, client payment summary, vendor payment summary",meta:"",tags:["feature"]},
+    {id:"ad7",label:"Admin actions (payment record, issue resolution, role changes) must be logged with timestamp",meta:"Audit trail for accountability",tags:["security","high"]},
+    {id:"ad8",label:"Admin panel must NOT be publicly accessible — IP whitelist or VPN access only",meta:"If on cloud, restrict the /admin route at nginx/firewall level",tags:["security","critical"]},
+  ]},
+  {id:"s8",phase:"ph-3",phaseLabel:"Phase 3 — Portals",icon:"ti-user-circle",title:"Client portal",items:[
+    {id:"cl1",label:"Client login with phone OTP or email+password — no admin password reuse",meta:"",tags:["feature","security"]},
+    {id:"cl2",label:"Event overview: event name, date, venue, current status (planning/confirmed/completed)",meta:"",tags:["feature"]},
+    {id:"cl3",label:"Team view: list of service boys assigned to their event — name and phone number only",meta:"As requested — client sees who is working at their event",tags:["feature"]},
+    {id:"cl4",label:"Payment section: total cost, advance paid, balance due, full payment history with dates",meta:"",tags:["feature"]},
+    {id:"cl5",label:"Issue reporting: post text description + upload multiple images — submits directly to admin issues tab",meta:"Core feature — must support multi-image upload",tags:["feature"]},
+    {id:"cl6",label:"Issue history: client can see their past issues and current status (open/in progress/resolved)",meta:"",tags:["feature"]},
+    {id:"cl7",label:"Validate image uploads: file type (jpg/png/webp only), max size (5MB), virus scan or cloud storage isolation",meta:"Uploaded images go to S3/Cloudinary — never stored on app server",tags:["security","critical"]},
+    {id:"cl8",label:"Client can only see data for their own events — hard scope all queries to client ID",meta:"A client with two events must not see another client's event",tags:["security","critical"]},
+    {id:"cl9",label:"Do not expose service boy full personal details (address, Aadhaar, bank account) to client — name and phone only",meta:"Minimum necessary information",tags:["security","high"]},
+  ]},
+  {id:"s9",phase:"ph-3",phaseLabel:"Phase 3 — Portals",icon:"ti-id-badge",title:"Service boy portal",items:[
+    {id:"sp1",label:"Login via phone number + OTP (no password needed — simpler for field workers)",meta:"WhatsApp OTP via Twilio/MSG91 is ideal",tags:["feature"]},
+    {id:"sp2",label:"Home screen: upcoming assignments with event name, date, venue, role assigned",meta:"",tags:["feature"]},
+    {id:"sp3",label:"Earnings view: days worked per event × daily rate = earnings, payment received vs pending",meta:"",tags:["feature"]},
+    {id:"sp4",label:"Simple mobile-first UI — these users may have basic smartphones",meta:"Large text, minimal steps, works on 4G",tags:["feature"]},
+    {id:"sp5",label:"Portal is strictly read-only — service boy cannot edit assignments, rates, or payment records",meta:"Any edit must go through admin",tags:["security","high"]},
+  ]},
+  {id:"s10",phase:"ph-3",phaseLabel:"Phase 3 — Portals",icon:"ti-building-store",title:"Vendor portal",items:[
+    {id:"vp1",label:"Login via email + password or phone OTP",meta:"",tags:["feature"]},
+    {id:"vp2",label:"Services/materials supplied: list of all events they've contributed to, what was provided",meta:"",tags:["feature"]},
+    {id:"vp3",label:"Payment tracker: total invoiced, amount received, pending balance per event",meta:"",tags:["feature"]},
+    {id:"vp4",label:"Download payment receipts or invoice summaries as PDF",meta:"",tags:["feature"]},
+    {id:"vp5",label:"Portal is read-only — vendors cannot edit invoice amounts or payment records",meta:"Disputes go through admin",tags:["security","high"]},
+  ]},
+  {id:"s11",phase:"ph-4",phaseLabel:"Phase 4 — Advanced features",icon:"ti-photo-up",title:"Image upload & issue reporting system",items:[
+    {id:"img1",label:"Use a cloud storage service (Cloudinary / AWS S3) for all image uploads — never store on app server",meta:"App server storage is lost on redeploy and hard to scale",tags:["feature","critical"]},
+    {id:"img2",label:"Generate pre-signed upload URLs — client uploads directly to S3, not through your server",meta:"Reduces server load and security surface area",tags:["feature","security"]},
+    {id:"img3",label:"Validate file type server-side using magic bytes, not just file extension",meta:"A .php file renamed to .jpg is still a .php",tags:["security","critical"]},
+    {id:"img4",label:"Set max file size limit (5MB) and max images per issue (e.g. 5)",meta:"Prevents storage abuse",tags:["security","high"]},
+    {id:"img5",label:"Strip EXIF metadata from uploaded images before storing",meta:"EXIF can contain GPS coordinates and device info",tags:["security","high"]},
+    {id:"img6",label:"Admin issues tab: filter by event, status, date; view images inline; update status with a note",meta:"",tags:["feature"]},
+    {id:"img7",label:"Send admin notification (email/WhatsApp) when a new issue is submitted",meta:"Real-time awareness for the owner",tags:["feature"]},
+  ]},
+  {id:"s12",phase:"ph-4",phaseLabel:"Phase 4 — Advanced features",icon:"ti-bell",title:"Notifications & communication",items:[
+    {id:"nt1",label:"WhatsApp or SMS notification to service boy when assigned to a new event",meta:"MSG91 / Twilio — critical for field workers who don't check apps",tags:["feature"]},
+    {id:"nt2",label:"Payment confirmation notification to client when advance is recorded",meta:"",tags:["feature"]},
+    {id:"nt3",label:"Reminder to client 3 days before event: date, time, balance due",meta:"",tags:["feature"]},
+    {id:"nt4",label:"Admin alert when a new client issue is submitted",meta:"Push notification or email",tags:["feature"]},
+    {id:"nt5",label:"Vendor payment due alert: notify admin when a vendor payment is overdue",meta:"",tags:["feature"]},
+  ]},
+  {id:"s13",phase:"ph-5",phaseLabel:"Phase 5 — Security hardening & launch",icon:"ti-shield-lock",title:"Security hardening — application layer",items:[
+    {id:"sec1",label:"Run OWASP Top 10 check against all portal endpoints before launch",meta:"SQL injection, XSS, IDOR, broken auth, misconfiguration",tags:["security","critical"]},
+    {id:"sec2",label:"Test all IDOR scenarios: can client A see client B's data? Can service boy A see boy B's wages?",meta:"Manually test every data-fetching endpoint with two different accounts",tags:["security","critical"]},
+    {id:"sec3",label:"Pen test the image upload endpoint specifically — try uploading scripts, oversized files, wrong types",meta:"Upload endpoints are a top attack vector",tags:["security","critical"]},
+    {id:"sec4",label:"Ensure all portal tokens expire correctly and are invalidated on logout",meta:"Test with expired tokens — they must get a 401, not data",tags:["security","high"]},
+    {id:"sec5",label:"Remove all debug logs, console.logs, and stack traces from production builds",meta:"Stack traces leak your tech stack and file paths to attackers",tags:["security","high"]},
+    {id:"sec6",label:"Set up a WAF (Cloudflare free tier minimum) in front of all portals",meta:"",tags:["security","high"]},
+    {id:"sec7",label:"Conduct a dependency audit — npm audit / composer audit — and fix critical vulnerabilities",meta:"",tags:["security","high"]},
+    {id:"sec8",label:"Add MFA (TOTP) option for admin portal login",meta:"Owner's account has full access to everything",tags:["security","critical"]},
+  ]},
+  {id:"s14",phase:"ph-5",phaseLabel:"Phase 5 — Security hardening & launch",icon:"ti-server-2",title:"Infrastructure & operations",items:[
+    {id:"inf1",label:"Set up automated daily database backups to a separate cloud bucket",meta:"Test restore procedure before going live",tags:["security","critical"]},
+    {id:"inf2",label:"Configure firewall: only ports 80 and 443 open publicly; DB port only accessible from app server",meta:"",tags:["security","high"]},
+    {id:"inf3",label:"Set up uptime monitoring (UptimeRobot / Better Uptime) with alerts",meta:"You need to know before clients do",tags:["feature"]},
+    {id:"inf4",label:"Set up centralised error logging (Sentry / LogRocket) across all portals",meta:"",tags:["feature"]},
+    {id:"inf5",label:"Configure HTTPS auto-renewal (Let's Encrypt / Certbot) so certs never expire",meta:"",tags:["security","high"]},
+    {id:"inf6",label:"Store all environment secrets in a secrets manager — rotate DB passwords and API keys before launch",meta:"",tags:["security","critical"]},
+    {id:"inf7",label:"Set up rate limiting at nginx/API gateway level — not just in app code",meta:"App-level rate limiting can be bypassed if the app crashes",tags:["security","high"]},
+  ]},
+  {id:"s15",phase:"ph-5",phaseLabel:"Phase 5 — Security hardening & launch",icon:"ti-rocket",title:"Testing & launch readiness",items:[
+    {id:"la1",label:"End-to-end test all four portal flows with real test accounts",meta:"Create one test client, vendor, service boy and run a full mock event",tags:["feature"]},
+    {id:"la2",label:"Mobile responsiveness test on all portals — especially service boy and client portals",meta:"Most users will be on mobile",tags:["feature"]},
+    {id:"la3",label:"Load test the API — simulate 50 concurrent users (events with large teams)",meta:"Use k6 or Apache JMeter",tags:["feature"]},
+    {id:"la4",label:"Document all API endpoints (Swagger / Postman collection) before handoff",meta:"Future developers will thank you",tags:["feature"]},
+    {id:"la5",label:"Train admin user on all portal features — record a walkthrough video",meta:"Owner must be self-sufficient",tags:["feature"]},
+    {id:"la6",label:"Have a rollback plan for the first 30 days — know how to revert a bad deployment in under 30 min",meta:"",tags:["security","high"]},
+    {id:"la7",label:"Set up a dedicated support channel for service boys and vendors to report login issues",meta:"Field workers will need human support initially",tags:["feature"]},
+  ]},
+];
+
+let checked=JSON.parse(localStorage.getItem('ash_el')||'{}');
+let activeF='all';
+function save(){try{localStorage.setItem('ash_el',JSON.stringify(checked));}catch(e){}}
+function allItems(){return sections.flatMap(s=>s.items);}
+
+function updateStats(){
+  const all=allItems(),total=all.length,done=all.filter(i=>checked[i.id]).length,pct=total?Math.round(done/total*100):0;
+  document.getElementById('totalStat').textContent=total;
+  document.getElementById('doneStat').textContent=done;
+  document.getElementById('remStat').textContent=total-done;
+  document.getElementById('pctStat').textContent=pct+'%';
+  document.getElementById('progBar').style.width=pct+'%';
+}
+
+function filterItems(items){
+  if(activeF==='all') return items;
+  if(activeF==='remaining') return items.filter(i=>!checked[i.id]);
+  if(activeF==='security') return items.filter(i=>i.tags.includes('security'));
+  return items;
+}
+
+function filterSection(s){
+  if(activeF==='all'||activeF==='remaining'||activeF==='security') return filterItems(s.items).length>0;
+  return s.phase===activeF;
+}
+
+function render(){
+  const cont=document.getElementById('sections');
+  cont.innerHTML='';
+  let lastPhase='';
+  sections.forEach(section=>{
+    const vis=filterItems(section.items);
+    if(!filterSection(section)||!vis.length) return;
+    const showPhaseLabel=(activeF==='all'||activeF===section.phase)&&section.phaseLabel!==lastPhase;
+    if(showPhaseLabel){lastPhase=section.phaseLabel;const pl=document.createElement('div');pl.className='phase-label';pl.textContent=section.phaseLabel;cont.appendChild(pl);}
+    const doneCount=section.items.filter(i=>checked[i.id]).length;
+    const allDone=doneCount===section.items.length;
+    const div=document.createElement('div');div.className='section';
+    const phClass=section.phase;
+    div.innerHTML=`
+      <div class="sh" onclick="toggleSec(this)">
+        <i class="ti ${section.icon} sh-icon" aria-hidden="true"></i>
+        <span class="sh-title">${section.title}</span>
+        <span class="sh-badge ${allDone?'all-done':''}">${doneCount}/${section.items.length}</span>
+        <i class="ti ti-chevron-down chevron open" aria-hidden="true"></i>
+      </div>
+      <div class="items open">
+        ${vis.map(item=>`
+          <div class="item ${checked[item.id]?'checked':''}" onclick="toggle('${item.id}')">
+            <div class="chk"></div>
+            <div class="item-text">
+              <div class="item-label">${item.label}${item.tags.filter(t=>['critical','high','medium'].includes(t)).map(t=>`<span class="tag t-${t}">${t}</span>`).join('')}${item.tags.includes('security')?'<span class="tag t-security">security</span>':''}</div>
+              ${item.meta?`<div class="item-meta">${item.meta}</div>`:''}
+            </div>
+          </div>`).join('')}
+      </div>`;
+    cont.appendChild(div);
+  });
+  updateStats();
+}
+
+function toggleSec(h){const items=h.nextElementSibling,ch=h.querySelector('.chevron');items.classList.toggle('open');ch.classList.toggle('open');}
+function toggle(id){checked[id]=!checked[id];save();render();}
+
+document.getElementById('filterRow').addEventListener('click',e=>{
+  const btn=e.target.closest('.fb');if(!btn)return;
+  activeF=btn.dataset.f;
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');render();
+});
+
+document.getElementById('expBtn').addEventListener('click',()=>{
+  const all=allItems(),done=all.filter(i=>checked[i.id]),rem=all.filter(i=>!checked[i.id]);
+  const txt=`ASH ELEVATE AI — Build & Security Checklist\nExported: ${new Date().toLocaleDateString()}\nProgress: ${done.length}/${all.length}\n\nCompleted:\n${done.map(i=>'✓ '+i.label).join('\n')}\n\nRemaining:\n${rem.map(i=>'○ '+i.label).join('\n')}`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain'}));a.download='ash-elevate-ai-checklist.txt';a.click();
+});
+
+render();
+</script>
