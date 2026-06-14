@@ -414,7 +414,8 @@ body {
   background-color: var(--bg-panel);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius-md);
-  overflow: hidden;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: 0 4px 30px rgba(0,0,0,0.05);
 }
 .data-table {
@@ -1575,6 +1576,38 @@ body {
    ========================================================================== */
 
 @media (max-width: 900px) {
+  .app-header {
+    padding: 0 1rem;
+  }
+  .brand-logo {
+    height: 36px;
+    max-width: 120px;
+    padding: 4px 8px;
+  }
+  .app-badge {
+    display: none;
+  }
+  .header-actions {
+    gap: 0.75rem;
+  }
+  .user-profile-pill {
+    padding: 4px;
+    gap: 0;
+  }
+  .user-pill-info {
+    display: none;
+  }
+  #btn-logout {
+    font-size: 0;
+    padding: 8px 10px;
+  }
+  #btn-logout i {
+    font-size: 14px;
+    margin: 0;
+  }
+  .workspace-viewport {
+    padding: 1rem;
+  }
   .app-body {
     flex-direction: column;
   }
@@ -1601,5 +1634,26 @@ body {
   }
   .client-dashboard-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .form-row-three {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .login-card {
+    padding: 1.5rem;
+    margin: 12px;
+  }
+  .modal-card {
+    width: calc(100% - 24px);
+    margin: 12px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
   }
 }
