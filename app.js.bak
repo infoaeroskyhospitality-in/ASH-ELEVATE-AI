@@ -19,7 +19,7 @@ firebase.initializeApp(firebaseConfig);
 // --- Supabase Client Initialization ---
 const supabaseUrl = "https://tintsbslzdwjylwgocbm.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpbnRzYnNsemR3anlsd2dvY2JtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTgzMzQsImV4cCI6MjA5NzA5NDMzNH0.fYPaV8HiUrr6mllkZTztc1AYBdk64pPB6xPtWO14jug";
-const supabaseClient = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
 
 // --- Database Schema Initializer & Caching ---
 let db = {
@@ -135,7 +135,7 @@ const mockIssues = [];
 
 // --- Database Management Engine ---
 async function loadDatabase() {
-  if (!supabaseClient) {
+  if (!supabase) {
     console.error("Supabase client not initialized!");
     return;
   }
@@ -153,15 +153,15 @@ async function loadDatabase() {
       issuesRes,
       checklistRes
     ] = await Promise.all([
-      supabaseClient.from('clients').select('*'),
-      supabaseClient.from('events').select('*'),
-      supabaseClient.from('service_boys').select('*'),
-      supabaseClient.from('vendors').select('*'),
-      supabaseClient.from('assignments').select('*'),
-      supabaseClient.from('vendor_orders').select('*'),
-      supabaseClient.from('payments').select('*'),
-      supabaseClient.from('issues').select('*'),
-      supabaseClient.from('checklist').select('*')
+      supabase.from('clients').select('*'),
+      supabase.from('events').select('*'),
+      supabase.from('service_boys').select('*'),
+      supabase.from('vendors').select('*'),
+      supabase.from('assignments').select('*'),
+      supabase.from('vendor_orders').select('*'),
+      supabase.from('payments').select('*'),
+      supabase.from('issues').select('*'),
+      supabase.from('checklist').select('*')
     ]);
 
     // Handle any fetch errors
@@ -241,7 +241,7 @@ async function loadDatabase() {
         tag: item.tag,
         checked: false
       }));
-      await supabaseClient.from('checklist').insert(seedItems);
+      await supabase.from('checklist').insert(seedItems);
       db.checklist = seedItems;
     }
 
@@ -610,7 +610,7 @@ function renderChecklistProgress() {
       }
       item.checked = !item.checked;
       try {
-        await supabaseClient.from('checklist').update({ checked: item.checked }).eq('id', item.id);
+        await supabase.from('checklist').update({ checked: item.checked }).eq('id', item.id);
         renderChecklistProgress();
       } catch (err) {
         console.error("Failed to update checklist in Supabase:", err);
@@ -710,7 +710,7 @@ function renderEventsTab() {
     tr.querySelector(".event-status-toggle").addEventListener("change", async (event) => {
       e.status = event.target.value;
       try {
-        await supabaseClient.from('events').update({ status: e.status }).eq('id', e.id);
+        await supabase.from('events').update({ status: e.status }).eq('id', e.id);
         renderAllViews();
       } catch (err) {
         console.error("Failed to update event status in Supabase:", err);
@@ -761,7 +761,7 @@ function renderStaffTab() {
     tr.querySelector(".btn-delete-staff").addEventListener("click", async () => {
       if (confirm(`Remove ${s.name} from directory?`)) {
         try {
-          await supabaseClient.from('service_boys').delete().eq('id', s.id);
+          await supabase.from('service_boys').delete().eq('id', s.id);
           await loadDatabase();
           renderAllViews();
         } catch (err) {
@@ -808,7 +808,7 @@ function renderVendorsTab() {
     tr.querySelector(".btn-delete-vendor").addEventListener("click", async () => {
       if (confirm(`Remove ${v.name} from vendors?`)) {
         try {
-          await supabaseClient.from('vendors').delete().eq('id', v.id);
+          await supabase.from('vendors').delete().eq('id', v.id);
           await loadDatabase();
           renderAllViews();
         } catch (err) {
@@ -866,7 +866,7 @@ function renderIssuesInboxTab() {
     card.querySelector(".issue-action-select").addEventListener("change", async (e) => {
       i.status = e.target.value;
       try {
-        await supabaseClient.from('issues').update({ status: i.status }).eq('id', i.id);
+        await supabase.from('issues').update({ status: i.status }).eq('id', i.id);
         renderAllViews();
       } catch (err) {
         console.error("Failed to update issue status in Supabase:", err);
@@ -956,7 +956,7 @@ function loadStaffAssignmentView() {
       else a.status = "assigned";
       
       try {
-        await supabaseClient.from('assignments').update({ status: a.status }).eq('id', a.id);
+        await supabase.from('assignments').update({ status: a.status }).eq('id', a.id);
         renderAllViews();
         loadStaffAssignmentView();
       } catch (err) {
@@ -967,7 +967,7 @@ function loadStaffAssignmentView() {
     // Delete assignment
     tr.querySelector(".btn-delete-assignment").addEventListener("click", async () => {
       try {
-        await supabaseClient.from('assignments').delete().eq('id', a.id);
+        await supabase.from('assignments').delete().eq('id', a.id);
         await loadDatabase();
         renderAllViews();
         loadStaffAssignmentView();
@@ -1022,7 +1022,7 @@ function loadVendorAssignmentView() {
     
     tr.querySelector(".btn-delete-vo").addEventListener("click", async () => {
       try {
-        await supabaseClient.from('vendor_orders').delete().eq('id', vo.id);
+        await supabase.from('vendor_orders').delete().eq('id', vo.id);
         await loadDatabase();
         renderAllViews();
         loadVendorAssignmentView();
@@ -1351,7 +1351,7 @@ function loadServiceBoyPortalView() {
     checkinBtn.onclick = async () => {
       activeAssign.status = "present";
       try {
-        await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', activeAssign.id);
+        await supabase.from('assignments').update({ status: 'present' }).eq('id', activeAssign.id);
         await loadDatabase();
         loadServiceBoyPortalView();
         renderAllViews();
@@ -1414,8 +1414,8 @@ function initFormSubmissions() {
     const eventBudget = parseFloat(document.getElementById("event-budget").value) || 0;
     
     try {
-      await supabaseClient.from('clients').insert({ id: clientId, name: clientName, phone: clientPhone, email: clientEmail });
-      await supabaseClient.from('events').insert({
+      await supabase.from('clients').insert({ id: clientId, name: clientName, phone: clientPhone, email: clientEmail });
+      await supabase.from('events').insert({
         id: eventId,
         name: eventName,
         date: eventDate,
@@ -1446,7 +1446,7 @@ function initFormSubmissions() {
     const rate = parseFloat(document.getElementById("staff-rate").value) || 0;
     
     try {
-      await supabaseClient.from('service_boys').insert({ id: staffId, name: name, phone: phone, role: role, rate: rate });
+      await supabase.from('service_boys').insert({ id: staffId, name: name, phone: phone, role: role, rate: rate });
       await loadDatabase();
       closeModal("modal-staff");
       document.getElementById("form-add-staff").reset();
@@ -1469,7 +1469,7 @@ function initFormSubmissions() {
     const email = document.getElementById("vendor-email").value;
     
     try {
-      await supabaseClient.from('vendors').insert({ id: vendorId, name: name, category: category, phone: phone, email: email });
+      await supabase.from('vendors').insert({ id: vendorId, name: name, category: category, phone: phone, email: email });
       await loadDatabase();
       closeModal("modal-vendor");
       document.getElementById("form-add-vendor").reset();
@@ -1492,7 +1492,7 @@ function initFormSubmissions() {
     if (!staffId) return;
     
     try {
-      await supabaseClient.from('assignments').insert({
+      await supabase.from('assignments').insert({
         id: 'a-' + Date.now(),
         service_boy_id: staffId,
         event_id: activeAssignEventId,
@@ -1520,7 +1520,7 @@ function initFormSubmissions() {
     if (!vendorId) return;
     
     try {
-      await supabaseClient.from('vendor_orders').insert({
+      await supabase.from('vendor_orders').insert({
         id: 'vo-' + Date.now(),
         vendor_id: vendorId,
         event_id: activeAssignEventId,
@@ -1551,7 +1551,7 @@ function initFormSubmissions() {
     }
     
     try {
-      await supabaseClient.from('payments').insert({
+      await supabase.from('payments').insert({
         id: 'p-' + Date.now(),
         event_id: activeAssignEventId,
         amount: amount,
@@ -1579,7 +1579,7 @@ function initFormSubmissions() {
     const desc = document.getElementById("issue-description").value;
     
     try {
-      await supabaseClient.from('issues').insert({
+      await supabase.from('issues').insert({
         id: 'i-' + Date.now(),
         event_id: eventId,
         client_id: clientId,
