@@ -31,13 +31,7 @@ let db = {
 
 // User Credentials Directory (Authentication Database with Phone Links)
 const userAccounts = {
-  "admin@aerosky.com": { password: "admin123", name: "Aerosky Admin", role: "admin", id: "admin-root", phone: "+919811339509" },
-  "ramesh@gmail.com": { password: "client123", name: "Ramesh Aggarwal", role: "client", id: "c-1", phone: "+919999888887" },
-  "meenakshi.iyer@apexinfo.com": { password: "client123", name: "Meenakshi Iyer", role: "client", id: "c-2", phone: "+919811055443" },
-  "sanjay@fashionexpo.in": { password: "client123", name: "Sanjay Kapoor", role: "client", id: "c-3", phone: "+919910088273" },
-  "star@startents.com": { password: "vendor123", name: "Star Tent Supplies", role: "vendor", id: "v-1", phone: "+919910022000" },
-  "rahul@gmail.com": { password: "staff123", name: "Rahul Sharma", role: "service_boy", id: "s-1", phone: "+919811223344" },
-  "rajesh@gmail.com": { password: "staff123", name: "Rajesh Yadav", role: "service_boy", id: "s-4", phone: "+919711611002" }
+  "admin@aerosky.com": { password: "admin123", name: "Aerosky Admin", role: "admin", id: "admin-root", phone: "+919811339509" }
 };
 
 // Clean and format phone number for exact comparison (e.g. remove spaces, dashes)
@@ -320,14 +314,7 @@ function initLoginHandlers() {
     activeTempUser = null;
   });
 
-  // Demo buttons auto-fill login credentials
-  document.querySelectorAll(".btn-demo").forEach(btn => {
-    btn.addEventListener("click", () => {
-      phoneInput.value = btn.dataset.phone;
-      // Trigger submit
-      form.dispatchEvent(new Event("submit"));
-    });
-  });
+
 
   // Logout button
   document.getElementById("btn-logout").addEventListener("click", () => {
