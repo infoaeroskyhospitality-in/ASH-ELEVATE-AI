@@ -16,6 +16,11 @@ const firebaseConfig = {
 // Initialize Firebase SDK
 firebase.initializeApp(firebaseConfig);
 
+// --- Supabase Client Initialization ---
+const supabaseUrl = "https://tintsbslzdwjylwgocbm.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRpbnRzYnNsemR3anlsd2dvY2JtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MTgzMzQsImV4cCI6MjA5NzA5NDMzNH0.fYPaV8HiUrr6mllkZTztc1AYBdk64pPB6xPtWO14jug";
+const supabase = window.supabase ? window.supabase.createClient(supabaseUrl, supabaseKey) : null;
+
 // --- Database Schema Initializer & Caching ---
 let db = {
   events: [],
@@ -129,47 +134,124 @@ const mockPayments = [];
 const mockIssues = [];
 
 // --- Database Management Engine ---
-function loadDatabase() {
+async function loadDatabase() {
+  if (!supabase) {
+    console.error("Supabase client not initialized!");
+    return;
+  }
+  
   try {
-    const localDb = localStorage.getItem("aerosky_ems_db");
-    let needsReset = false;
-    
-    if (localDb) {
-      db = JSON.parse(localDb);
-      // If version is missing or outdated, clear and reset
-      if (!db.version || db.version !== DATABASE_VERSION) {
-        needsReset = true;
-      }
-    } else {
-      needsReset = true;
+    // Fetch data from all 9 tables in parallel using Promise.all
+    const [
+      clientsRes,
+      eventsRes,
+      serviceBoysRes,
+      vendorsRes,
+      assignmentsRes,
+      vendorOrdersRes,
+      paymentsRes,
+      issuesRes,
+      checklistRes
+    ] = await Promise.all([
+      supabase.from('clients').select('*'),
+      supabase.from('events').select('*'),
+      supabase.from('service_boys').select('*'),
+      supabase.from('vendors').select('*'),
+      supabase.from('assignments').select('*'),
+      supabase.from('vendor_orders').select('*'),
+      supabase.from('payments').select('*'),
+      supabase.from('issues').select('*'),
+      supabase.from('checklist').select('*')
+    ]);
+
+    // Handle any fetch errors
+    if (clientsRes.error) console.error("Error fetching clients:", clientsRes.error);
+    if (eventsRes.error) console.error("Error fetching events:", eventsRes.error);
+    if (serviceBoysRes.error) console.error("Error fetching service_boys:", serviceBoysRes.error);
+    if (vendorsRes.error) console.error("Error fetching vendors:", vendorsRes.error);
+    if (assignmentsRes.error) console.error("Error fetching assignments:", assignmentsRes.error);
+    if (vendorOrdersRes.error) console.error("Error fetching vendor_orders:", vendorOrdersRes.error);
+    if (paymentsRes.error) console.error("Error fetching payments:", paymentsRes.error);
+    if (issuesRes.error) console.error("Error fetching issues:", issuesRes.error);
+    if (checklistRes.error) console.error("Error fetching checklist:", checklistRes.error);
+
+    // Save fetched arrays directly to local memory cache db
+    db.clients = clientsRes.data || [];
+    db.events = eventsRes.data || [];
+    db.serviceBoys = serviceBoysRes.data || [];
+    db.vendors = vendorsRes.data || [];
+    db.assignments = assignmentsRes.data || [];
+    db.vendorOrders = vendorOrdersRes.data || [];
+    db.payments = paymentsRes.data || [];
+    db.issues = issuesRes.data || [];
+    db.checklist = checklistRes.data || [];
+
+    // Map database properties (e.g. description -> desc) if there's any naming variation
+    db.vendorOrders = db.vendorOrders.map(vo => ({
+      id: vo.id,
+      vendorId: vo.vendor_id,
+      eventId: vo.event_id,
+      desc: vo.description,
+      price: parseFloat(vo.price) || 0
+    }));
+
+    db.events = db.events.map(e => ({
+      id: e.id,
+      name: e.name,
+      date: e.date,
+      venue: e.venue,
+      clientId: e.client_id,
+      status: e.status,
+      budget: parseFloat(e.budget) || 0
+    }));
+
+    db.assignments = db.assignments.map(a => ({
+      id: a.id,
+      serviceBoyId: a.service_boy_id,
+      eventId: a.event_id,
+      role: a.role,
+      daysWorked: parseInt(a.days_worked) || 1,
+      status: a.status
+    }));
+
+    db.payments = db.payments.map(p => ({
+      id: p.id,
+      eventId: p.event_id,
+      amount: parseFloat(p.amount) || 0,
+      type: p.type,
+      entityId: p.entity_id,
+      date: p.date
+    }));
+
+    db.issues = db.issues.map(i => ({
+      id: i.id,
+      eventId: i.event_id,
+      clientId: i.client_id,
+      desc: i.description,
+      images: i.images || [],
+      status: i.status,
+      date: i.date
+    }));
+
+    // If checklist table is completely empty in Supabase, seed the default list items
+    if (db.checklist.length === 0) {
+      const seedItems = defaultChecklist.map(item => ({
+        id: item.id,
+        label: item.label,
+        tag: item.tag,
+        checked: false
+      }));
+      await supabase.from('checklist').insert(seedItems);
+      db.checklist = seedItems;
     }
-    
-    if (needsReset) {
-      db = {
-        version: DATABASE_VERSION,
-        events: [],
-        clients: [],
-        vendors: [],
-        serviceBoys: [],
-        assignments: [],
-        vendorOrders: [],
-        payments: [],
-        issues: [],
-        checklist: defaultChecklist.map(item => ({ ...item, checked: false }))
-      };
-      saveDatabase();
-    }
-  } catch (e) {
-    console.error("Failed to load local storage database", e);
+
+  } catch (err) {
+    console.error("Failed to sync database from Supabase:", err);
   }
 }
 
 function saveDatabase() {
-  try {
-    localStorage.setItem("aerosky_ems_db", JSON.stringify(db));
-  } catch (e) {
-    console.error("Failed to save database to local storage", e);
-  }
+  // Database state is persisted to Supabase in real-time
 }
 
 // --- App Navigation & Setup Router ---
@@ -178,9 +260,9 @@ let activeAssignEventId = ""; // Track context event inside operations modal
 let activeAssignTab = "tab-staff-assign";
 let tempIssueImages = []; // Hold uploaded issue base64 strings
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Load database
-  loadDatabase();
+document.addEventListener("DOMContentLoaded", async () => {
+  // Load database from Supabase
+  await loadDatabase();
 
   // Initialize Elements & UI Bindings
   initAppNavigation();
@@ -521,14 +603,18 @@ function renderChecklistProgress() {
     `;
     
     // Toggle check
-    div.addEventListener("click", (e) => {
+    div.addEventListener("click", async (e) => {
       if (e.target.tagName !== "INPUT") {
         const chk = div.querySelector("input");
         chk.checked = !chk.checked;
       }
       item.checked = !item.checked;
-      saveDatabase();
-      renderChecklistProgress();
+      try {
+        await supabase.from('checklist').update({ checked: item.checked }).eq('id', item.id);
+        renderChecklistProgress();
+      } catch (err) {
+        console.error("Failed to update checklist in Supabase:", err);
+      }
     });
     
     miniList.appendChild(div);
@@ -621,10 +707,14 @@ function renderEventsTab() {
     `;
     
     // Status Change
-    tr.querySelector(".event-status-toggle").addEventListener("change", (event) => {
+    tr.querySelector(".event-status-toggle").addEventListener("change", async (event) => {
       e.status = event.target.value;
-      saveDatabase();
-      renderAllViews();
+      try {
+        await supabase.from('events').update({ status: e.status }).eq('id', e.id);
+        renderAllViews();
+      } catch (err) {
+        console.error("Failed to update event status in Supabase:", err);
+      }
     });
     
     // Manage Operations click
@@ -668,13 +758,15 @@ function renderStaffTab() {
       </td>
     `;
     
-    tr.querySelector(".btn-delete-staff").addEventListener("click", () => {
+    tr.querySelector(".btn-delete-staff").addEventListener("click", async () => {
       if (confirm(`Remove ${s.name} from directory?`)) {
-        db.serviceBoys = db.serviceBoys.filter(x => x.id !== s.id);
-        // Clear his assignments
-        db.assignments = db.assignments.filter(x => x.serviceBoyId !== s.id);
-        saveDatabase();
-        renderAllViews();
+        try {
+          await supabase.from('service_boys').delete().eq('id', s.id);
+          await loadDatabase();
+          renderAllViews();
+        } catch (err) {
+          console.error("Failed to delete staff in Supabase:", err);
+        }
       }
     });
     
@@ -713,12 +805,15 @@ function renderVendorsTab() {
       </td>
     `;
     
-    tr.querySelector(".btn-delete-vendor").addEventListener("click", () => {
+    tr.querySelector(".btn-delete-vendor").addEventListener("click", async () => {
       if (confirm(`Remove ${v.name} from vendors?`)) {
-        db.vendors = db.vendors.filter(x => x.id !== v.id);
-        db.vendorOrders = db.vendorOrders.filter(x => x.vendorId !== v.id);
-        saveDatabase();
-        renderAllViews();
+        try {
+          await supabase.from('vendors').delete().eq('id', v.id);
+          await loadDatabase();
+          renderAllViews();
+        } catch (err) {
+          console.error("Failed to delete vendor in Supabase:", err);
+        }
       }
     });
     
@@ -768,10 +863,14 @@ function renderIssuesInboxTab() {
       </div>
     `;
     
-    card.querySelector(".issue-action-select").addEventListener("change", (e) => {
+    card.querySelector(".issue-action-select").addEventListener("change", async (e) => {
       i.status = e.target.value;
-      saveDatabase();
-      renderAllViews();
+      try {
+        await supabase.from('issues').update({ status: i.status }).eq('id', i.id);
+        renderAllViews();
+      } catch (err) {
+        console.error("Failed to update issue status in Supabase:", err);
+      }
     });
     
     container.appendChild(card);
@@ -851,22 +950,30 @@ function loadStaffAssignmentView() {
     `;
     
     // Toggle attendance
-    tr.querySelector(".toggle-attendance-btn").addEventListener("click", () => {
+    tr.querySelector(".toggle-attendance-btn").addEventListener("click", async () => {
       if (a.status === "assigned") a.status = "present";
       else if (a.status === "present") a.status = "absent";
       else a.status = "assigned";
       
-      saveDatabase();
-      renderAllViews();
-      loadStaffAssignmentView();
+      try {
+        await supabase.from('assignments').update({ status: a.status }).eq('id', a.id);
+        renderAllViews();
+        loadStaffAssignmentView();
+      } catch (err) {
+        console.error("Failed to toggle attendance in Supabase:", err);
+      }
     });
 
     // Delete assignment
-    tr.querySelector(".btn-delete-assignment").addEventListener("click", () => {
-      db.assignments = db.assignments.filter(x => x.id !== a.id);
-      saveDatabase();
-      renderAllViews();
-      loadStaffAssignmentView();
+    tr.querySelector(".btn-delete-assignment").addEventListener("click", async () => {
+      try {
+        await supabase.from('assignments').delete().eq('id', a.id);
+        await loadDatabase();
+        renderAllViews();
+        loadStaffAssignmentView();
+      } catch (err) {
+        console.error("Failed to delete assignment in Supabase:", err);
+      }
     });
     
     tbody.appendChild(tr);
@@ -913,11 +1020,15 @@ function loadVendorAssignmentView() {
       </td>
     `;
     
-    tr.querySelector(".btn-delete-vo").addEventListener("click", () => {
-      db.vendorOrders = db.vendorOrders.filter(x => x.id !== vo.id);
-      saveDatabase();
-      renderAllViews();
-      loadVendorAssignmentView();
+    tr.querySelector(".btn-delete-vo").addEventListener("click", async () => {
+      try {
+        await supabase.from('vendor_orders').delete().eq('id', vo.id);
+        await loadDatabase();
+        renderAllViews();
+        loadVendorAssignmentView();
+      } catch (err) {
+        console.error("Failed to delete vendor order in Supabase:", err);
+      }
     });
     
     tbody.appendChild(tr);
@@ -1237,12 +1348,17 @@ function loadServiceBoyPortalView() {
     checkinStatus.textContent = "Duty Logged (Pending Check-In)";
     checkinStatus.className = "checkin-status";
     checkinBtn.style.display = "block";
-    checkinBtn.onclick = () => {
+    checkinBtn.onclick = async () => {
       activeAssign.status = "present";
-      saveDatabase();
-      loadServiceBoyPortalView();
-      renderAllViews();
-      alert("Attendance checked successfully! Your wage ledger is updated.");
+      try {
+        await supabase.from('assignments').update({ status: 'present' }).eq('id', activeAssign.id);
+        await loadDatabase();
+        loadServiceBoyPortalView();
+        renderAllViews();
+        alert("Attendance checked successfully! Your wage ledger is updated.");
+      } catch (err) {
+        console.error("Failed to check-in in Supabase:", err);
+      }
     };
   } else {
     const hasPresent = myAssignments.some(a => a.status === "present");
@@ -1282,44 +1398,45 @@ function loadServiceBoyPortalView() {
 
 // --- Global Form Submissions Handler ---
 function initFormSubmissions() {
-  // 1. Add Event
-  document.getElementById("form-add-event").addEventListener("submit", (e) => {
+  // 1. Add Event & Client
+  document.getElementById("form-add-event").addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    // Create new client
     const clientId = 'c-' + Date.now();
     const clientName = document.getElementById("event-client-name").value;
     const clientPhone = document.getElementById("event-client-phone").value;
     const clientEmail = document.getElementById("event-client-email").value;
     
-    db.clients.push({ id: clientId, name: clientName, phone: clientPhone, email: clientEmail });
-    
-    // Create Event
     const eventId = 'e-' + Date.now();
     const eventName = document.getElementById("event-name").value;
     const eventDate = document.getElementById("event-date").value;
     const eventVenue = document.getElementById("event-venue").value;
     const eventBudget = parseFloat(document.getElementById("event-budget").value) || 0;
     
-    db.events.push({
-      id: eventId,
-      name: eventName,
-      date: eventDate,
-      venue: eventVenue,
-      clientId: clientId,
-      status: "planning",
-      budget: eventBudget
-    });
-    
-    saveDatabase();
-    closeModal("modal-event");
-    document.getElementById("form-add-event").reset();
-    renderAllViews();
-    alert("New Event added successfully!");
+    try {
+      await supabase.from('clients').insert({ id: clientId, name: clientName, phone: clientPhone, email: clientEmail });
+      await supabase.from('events').insert({
+        id: eventId,
+        name: eventName,
+        date: eventDate,
+        venue: eventVenue,
+        client_id: clientId,
+        status: "planning",
+        budget: eventBudget
+      });
+      await loadDatabase();
+      closeModal("modal-event");
+      document.getElementById("form-add-event").reset();
+      renderAllViews();
+      alert("New Event added successfully!");
+    } catch (err) {
+      console.error("Failed to add event in Supabase:", err);
+      alert("Failed to save event details.");
+    }
   });
   
   // 2. Add Service Boy
-  document.getElementById("form-add-staff").addEventListener("submit", (e) => {
+  document.getElementById("form-add-staff").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const staffId = 's-' + Date.now();
@@ -1328,17 +1445,21 @@ function initFormSubmissions() {
     const role = document.getElementById("staff-role").value;
     const rate = parseFloat(document.getElementById("staff-rate").value) || 0;
     
-    db.serviceBoys.push({ id: staffId, name, phone, role, rate });
-    
-    saveDatabase();
-    closeModal("modal-staff");
-    document.getElementById("form-add-staff").reset();
-    renderAllViews();
-    alert("Staff member registered!");
+    try {
+      await supabase.from('service_boys').insert({ id: staffId, name: name, phone: phone, role: role, rate: rate });
+      await loadDatabase();
+      closeModal("modal-staff");
+      document.getElementById("form-add-staff").reset();
+      renderAllViews();
+      alert("Staff member registered!");
+    } catch (err) {
+      console.error("Failed to add staff in Supabase:", err);
+      alert("Failed to save crew details.");
+    }
   });
   
   // 3. Add Vendor
-  document.getElementById("form-add-vendor").addEventListener("submit", (e) => {
+  document.getElementById("form-add-vendor").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const vendorId = 'v-' + Date.now();
@@ -1347,17 +1468,21 @@ function initFormSubmissions() {
     const phone = document.getElementById("vendor-phone").value;
     const email = document.getElementById("vendor-email").value;
     
-    db.vendors.push({ id: vendorId, name, category, phone, email });
-    
-    saveDatabase();
-    closeModal("modal-vendor");
-    document.getElementById("form-add-vendor").reset();
-    renderAllViews();
-    alert("Vendor registered!");
+    try {
+      await supabase.from('vendors').insert({ id: vendorId, name: name, category: category, phone: phone, email: email });
+      await loadDatabase();
+      closeModal("modal-vendor");
+      document.getElementById("form-add-vendor").reset();
+      renderAllViews();
+      alert("Vendor registered!");
+    } catch (err) {
+      console.error("Failed to add vendor in Supabase:", err);
+      alert("Failed to save vendor details.");
+    }
   });
   
   // 4. Assign Staff to Event
-  document.getElementById("form-assign-staff").addEventListener("submit", (e) => {
+  document.getElementById("form-assign-staff").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const staffId = document.getElementById("assign-staff-id").value;
@@ -1366,22 +1491,26 @@ function initFormSubmissions() {
     
     if (!staffId) return;
     
-    db.assignments.push({
-      id: 'a-' + Date.now(),
-      serviceBoyId: staffId,
-      eventId: activeAssignEventId,
-      role: role,
-      daysWorked: days,
-      status: "assigned"
-    });
-    
-    saveDatabase();
-    renderAllViews();
-    loadStaffAssignmentView();
+    try {
+      await supabase.from('assignments').insert({
+        id: 'a-' + Date.now(),
+        service_boy_id: staffId,
+        event_id: activeAssignEventId,
+        role: role,
+        days_worked: days,
+        status: "assigned"
+      });
+      await loadDatabase();
+      renderAllViews();
+      loadStaffAssignmentView();
+    } catch (err) {
+      console.error("Failed to assign staff in Supabase:", err);
+      alert("Failed to assign crew member.");
+    }
   });
   
   // 5. Link Vendor to Event
-  document.getElementById("form-assign-vendor").addEventListener("submit", (e) => {
+  document.getElementById("form-assign-vendor").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const vendorId = document.getElementById("assign-vendor-id").value;
@@ -1390,22 +1519,26 @@ function initFormSubmissions() {
     
     if (!vendorId) return;
     
-    db.vendorOrders.push({
-      id: 'vo-' + Date.now(),
-      vendorId: vendorId,
-      eventId: activeAssignEventId,
-      desc: desc,
-      price: price
-    });
-    
-    saveDatabase();
-    renderAllViews();
-    loadVendorAssignmentView();
-    document.getElementById("form-assign-vendor").reset();
+    try {
+      await supabase.from('vendor_orders').insert({
+        id: 'vo-' + Date.now(),
+        vendor_id: vendorId,
+        event_id: activeAssignEventId,
+        description: desc,
+        price: price
+      });
+      await loadDatabase();
+      renderAllViews();
+      loadVendorAssignmentView();
+      document.getElementById("form-assign-vendor").reset();
+    } catch (err) {
+      console.error("Failed to link vendor in Supabase:", err);
+      alert("Failed to link vendor.");
+    }
   });
   
   // 6. Log Payouts / Payments
-  document.getElementById("form-log-payment").addEventListener("submit", (e) => {
+  document.getElementById("form-log-payment").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const type = document.getElementById("payment-target-type").value;
@@ -1417,48 +1550,56 @@ function initFormSubmissions() {
       return;
     }
     
-    db.payments.push({
-      id: 'p-' + Date.now(),
-      eventId: activeAssignEventId,
-      amount: amount,
-      type: type,
-      entityId: entityId,
-      date: new Date().toISOString().split('T')[0]
-    });
-    
-    saveDatabase();
-    renderAllViews();
-    loadPaymentsAssignmentView();
-    document.getElementById("payment-amount").value = "";
-    alert("Payment logged successfully!");
+    try {
+      await supabase.from('payments').insert({
+        id: 'p-' + Date.now(),
+        event_id: activeAssignEventId,
+        amount: amount,
+        type: type,
+        entity_id: entityId,
+        date: new Date().toISOString().split('T')[0]
+      });
+      await loadDatabase();
+      renderAllViews();
+      loadPaymentsAssignmentView();
+      document.getElementById("payment-amount").value = "";
+      alert("Payment logged successfully!");
+    } catch (err) {
+      console.error("Failed to log payment in Supabase:", err);
+      alert("Failed to record transaction details.");
+    }
   });
   
   // 7. Client submits issue ticket
-  document.getElementById("form-report-issue").addEventListener("submit", (e) => {
+  document.getElementById("form-report-issue").addEventListener("submit", async (e) => {
     e.preventDefault();
     
     const eventId = document.getElementById("issue-event-id").value;
     const clientId = loggedInUser.id; // Enforce context ID
     const desc = document.getElementById("issue-description").value;
     
-    db.issues.push({
-      id: 'i-' + Date.now(),
-      eventId: eventId,
-      clientId: clientId,
-      desc: desc,
-      images: [...tempIssueImages],
-      status: "open",
-      date: new Date().toISOString().split('T')[0]
-    });
-    
-    saveDatabase();
-    tempIssueImages = [];
-    document.getElementById("upload-thumbnails").innerHTML = "";
-    document.getElementById("form-report-issue").reset();
-    
-    loadClientPortalView();
-    renderAllViews();
-    alert("Support Ticket submitted to Admin command centre!");
+    try {
+      await supabase.from('issues').insert({
+        id: 'i-' + Date.now(),
+        event_id: eventId,
+        client_id: clientId,
+        description: desc,
+        images: [...tempIssueImages],
+        status: "open",
+        date: new Date().toISOString().split('T')[0]
+      });
+      await loadDatabase();
+      tempIssueImages = [];
+      document.getElementById("upload-thumbnails").innerHTML = "";
+      document.getElementById("form-report-issue").reset();
+      
+      loadClientPortalView();
+      renderAllViews();
+      alert("Support Ticket submitted to Admin command centre!");
+    } catch (err) {
+      console.error("Failed to report issue in Supabase:", err);
+      alert("Failed to submit ticket details.");
+    }
   });
 }
 
