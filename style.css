@@ -1824,3 +1824,244 @@ body {
   color: var(--text-secondary);
   border: 1px solid var(--border-color);
 }
+
+/* ==========================================================================
+   CHATBOT & LEADS DASHBOARD STYLES
+   ========================================================================== */
+
+/* Floating Chatbot Bubble */
+.chatbot-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  font-family: var(--font-family);
+}
+
+.chatbot-toggle-btn {
+  background: linear-gradient(135deg, var(--brand-green) 0%, var(--brand-green-hover) 100%);
+  border: 1px solid var(--brand-gold);
+  color: #fff;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  position: relative;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.chatbot-toggle-btn:hover {
+  transform: scale(1.08);
+}
+
+.chatbot-badge {
+  position: absolute;
+  left: -95px;
+  background: var(--brand-gold);
+  color: #000;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  text-transform: uppercase;
+  pointer-events: none;
+  border: 1px solid #fff;
+  animation: floatBadge 2s ease-in-out infinite;
+}
+
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Chat Window Box */
+.chatbot-window {
+  position: absolute;
+  bottom: 75px;
+  right: 0;
+  width: 360px;
+  height: 500px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: windowReveal 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes windowReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Chat Header */
+.chat-header {
+  background: var(--bg-card);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-owner-avatar {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.chat-owner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 2px solid var(--brand-gold);
+}
+
+.chat-status-dot {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--color-success);
+  border: 2px solid var(--bg-card);
+  border-radius: 50%;
+}
+
+.chat-header-info h4 {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.chat-header-info p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Chat Body */
+.chat-body {
+  flex-grow: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--bg-app);
+}
+
+/* Message Bubbles */
+.chat-bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 14px;
+  word-wrap: break-word;
+}
+
+.chat-bubble.assistant {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  align-self: flex-start;
+  border-top-left-radius: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.chat-bubble.client {
+  background-color: var(--brand-green);
+  color: #fff;
+  align-self: flex-end;
+  border-top-right-radius: 2px;
+}
+
+.chat-bubble strong {
+  color: var(--brand-gold);
+}
+
+/* Inline Inputs inside Chat */
+.chat-inline-field {
+  margin-top: 8px;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  padding: 8px;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.chat-inline-field select, 
+.chat-inline-field input {
+  font-size: 12px;
+  height: 32px;
+  padding: 4px 8px;
+}
+
+/* Input Area Row */
+.chat-input-row {
+  padding: 12px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-input-row input {
+  flex-grow: 1;
+  font-size: 13px;
+  background-color: var(--bg-input);
+}
+
+/* Inquiry Status Badges */
+.badge-status-pending {
+  background-color: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.badge-status-approved {
+  background-color: var(--color-success-glow);
+  color: var(--color-success);
+}
+
+.badge-status-booked {
+  background-color: var(--color-info-glow);
+  color: var(--color-info);
+}
+
+.badge-status-follow_up {
+  background-color: var(--color-warning-glow);
+  color: var(--color-warning);
+}
+
+/* Responsive adjustment for Mobile Chatbot */
+@media (max-width: 480px) {
+  .chatbot-window {
+    width: calc(100vw - 32px);
+    height: 420px;
+    bottom: 70px;
+  }
+}

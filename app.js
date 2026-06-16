@@ -32,7 +32,8 @@ let db = {
   payments: [],
   issues: [],
   checklist: [],
-  activityLogs: []
+  activityLogs: [],
+  inquiries: []
 };
 
 // User Credentials Directory (Authentication Database with Phone Links)
@@ -338,7 +339,8 @@ async function loadDatabase() {
       paymentsRes,
       issuesRes,
       checklistRes,
-      activityLogsRes
+      activityLogsRes,
+      inquiriesRes
     ] = await Promise.all([
       supabaseClient.from('clients').select('*'),
       supabaseClient.from('events').select('*'),
@@ -349,7 +351,8 @@ async function loadDatabase() {
       supabaseClient.from('payments').select('*'),
       supabaseClient.from('issues').select('*'),
       supabaseClient.from('checklist').select('*'),
-      supabaseClient.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100)
+      supabaseClient.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100),
+      supabaseClient.from('inquiries').select('*')
     ]);
 
     // Handle any fetch errors
@@ -363,6 +366,7 @@ async function loadDatabase() {
     if (issuesRes.error) console.error("Error fetching issues:", issuesRes.error);
     if (checklistRes.error) console.error("Error fetching checklist:", checklistRes.error);
     if (activityLogsRes && activityLogsRes.error) console.error("Error fetching activity_logs:", activityLogsRes.error);
+    if (inquiriesRes && inquiriesRes.error) console.error("Error fetching inquiries:", inquiriesRes.error);
 
     // Save fetched arrays directly to local memory cache db
     db.clients = clientsRes.data || [];
@@ -375,6 +379,7 @@ async function loadDatabase() {
     db.issues = issuesRes.data || [];
     db.checklist = checklistRes.data || [];
     db.activityLogs = activityLogsRes ? (activityLogsRes.data || []) : [];
+    db.inquiries = inquiriesRes ? (inquiriesRes.data || []) : [];
 
     // Map database properties (e.g. description -> desc) if there's any naming variation
     db.vendorOrders = db.vendorOrders.map(vo => ({
@@ -437,6 +442,19 @@ async function loadDatabase() {
       date: i.date
     }));
 
+    db.inquiries = db.inquiries.map(inq => ({
+      id: inq.id,
+      name: inq.name,
+      phone: inq.phone,
+      email: inq.email,
+      eventType: inq.event_type,
+      date: inq.date,
+      venue: inq.venue,
+      budget: parseFloat(inq.budget) || 0,
+      status: inq.status,
+      createdAt: inq.created_at
+    }));
+
     // If checklist table is completely empty in Supabase, seed the default list items
     if (db.checklist.length === 0) {
       const seedItems = defaultChecklist.map(item => ({
@@ -474,6 +492,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initModalsClose();
   initChecklistTrigger();
   initLoginHandlers();
+  initChatbot();
   
   // Check auth session
   checkAuthSession();
@@ -488,6 +507,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (e.target.value === "custom") {
           customGroup.style.display = "block";
           customInput.required = true;
+        } else {
+          customGroup.style.display = "none";
+          customInput.required = false;
+          customInput.value = "";
+        }
+      }
+    });
+  }
+
+  // Toggle Custom Role input field in Assign Staff modal
+  const assignStaffRoleSelect = document.getElementById("assign-staff-role");
+  if (assignStaffRoleSelect) {
+    assignStaffRoleSelect.addEventListener("change", (e) => {
+      const customGroup = document.getElementById("assign-staff-role-custom-group");
+      const customInput = document.getElementById("assign-staff-role-custom");
+      if (customGroup && customInput) {
+        if (e.target.value === "custom") {
+          customGroup.style.display = "block";
+          customInput.required = true;
+          customInput.focus();
         } else {
           customGroup.style.display = "none";
           customInput.required = false;
@@ -539,6 +578,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             `${label}!`,
             `₹${parseFloat(payment.amount).toLocaleString('en-IN')} logged for ${source}.`,
             type
+          );
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inquiries' }, async (payload) => {
+        const inquiry = payload.new;
+        await loadDatabase();
+        renderAllViews();
+        
+        if (loggedInUser && loggedInUser.role === 'admin') {
+          showToast(
+            `New Booking Inquiry!`,
+            `${inquiry.name} has sent an inquiry for a ${inquiry.event_type || 'event'}.`,
+            `info`
           );
         }
       })
@@ -696,6 +748,12 @@ function loginSuccess(user) {
   const sidebar = document.getElementById("admin-sidebar");
   sidebar.style.display = user.role === "admin" ? "flex" : "none";
 
+  // Hide chatbot widget when logged in
+  const chatbotWidget = document.getElementById("chatbot-widget");
+  if (chatbotWidget) {
+    chatbotWidget.style.display = "none";
+  }
+
   // Route viewport depending on role (Scoping & Security compliance checks)
   if (user.role === "admin") {
     document.getElementById("view-admin").classList.add("active");
@@ -716,6 +774,13 @@ function loginSuccess(user) {
 function logoutSuccess() {
   document.getElementById("login-screen").classList.add("active");
   document.body.classList.add("logged-out");
+
+  // Show chatbot widget when logged out
+  const chatbotWidget = document.getElementById("chatbot-widget");
+  if (chatbotWidget) {
+    chatbotWidget.style.display = "block";
+    resetChatbot();
+  }
 }
 
 function initAppNavigation() {
@@ -734,6 +799,8 @@ function initAppNavigation() {
       
       if (activeTab === "activity-logs") {
         renderActivityLogsTab();
+      } else if (activeTab === "leads") {
+        renderLeadsTab();
       }
     });
   });
@@ -1029,6 +1096,7 @@ function renderStaffTab() {
     });
     
     const tr = document.createElement("tr");
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td><strong>${s.name}</strong><br><span style="font-size:10px;color:var(--text-muted);">ID: SB-${s.id.substr(-4).toUpperCase()}</span></td>
       <td>${s.phone}</td>
@@ -1042,7 +1110,13 @@ function renderStaffTab() {
       </td>
     `;
     
-    tr.querySelector(".btn-delete-staff").addEventListener("click", async () => {
+    tr.addEventListener("click", (e) => {
+      if (e.target.closest(".btn-delete-staff")) return;
+      openStaffHistoryModal(s.id);
+    });
+    
+    tr.querySelector(".btn-delete-staff").addEventListener("click", async (e) => {
+      e.stopPropagation();
       if (confirm(`Remove ${s.name} from directory?`)) {
         try {
           await supabaseClient.from('service_boys').delete().eq('id', s.id);
@@ -1053,10 +1127,6 @@ function renderStaffTab() {
           console.error("Failed to delete staff in Supabase:", err);
         }
       }
-    });
-    
-    tr.querySelector(".btn-view-staff-history").addEventListener("click", () => {
-      openStaffHistoryModal(s.id);
     });
     
     tbody.appendChild(tr);
@@ -1888,7 +1958,10 @@ function initFormSubmissions() {
     e.preventDefault();
     
     const staffId = document.getElementById("assign-staff-id").value;
-    const role = document.getElementById("assign-staff-role").value;
+    let role = document.getElementById("assign-staff-role").value;
+    if (role === "custom") {
+      role = document.getElementById("assign-staff-role-custom").value.trim();
+    }
     const days = parseInt(document.getElementById("assign-staff-days").value) || 1;
     
     if (!staffId) return;
@@ -1906,6 +1979,16 @@ function initFormSubmissions() {
       const staffName = db.serviceBoys.find(s => s.id === staffId)?.name || "Staff";
       logActivity("ASSIGN_STAFF", "assignments", assignmentId, { staffName, role, eventId: activeAssignEventId });
       await loadDatabase();
+      
+      // Reset custom input state
+      const customGroup = document.getElementById("assign-staff-role-custom-group");
+      const customInput = document.getElementById("assign-staff-role-custom");
+      if (customGroup && customInput) {
+        customGroup.style.display = "none";
+        customInput.required = false;
+        customInput.value = "";
+      }
+      
       renderAllViews();
       loadStaffAssignmentView();
     } catch (err) {
@@ -2035,6 +2118,7 @@ function renderAllViews() {
     renderVendorsTab();
     renderIssuesInboxTab();
     renderActivityLogsTab();
+    renderLeadsTab();
   }
 }
 
@@ -2116,4 +2200,329 @@ function openStaffHistoryModal(staffId) {
   });
 
   openModal("modal-staff-history");
+}
+
+// --- Admin Leads Inbox Table Renderer ---
+function renderLeadsTab() {
+  const tbody = document.getElementById("table-leads-body");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!db.inquiries || db.inquiries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg" style="text-align:center;">No inquiries received yet.</td></tr>`;
+    return;
+  }
+
+  const sortedInquiries = [...db.inquiries].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  sortedInquiries.forEach(inq => {
+    const tr = document.createElement("tr");
+    const cleanStatus = inq.status || 'pending';
+    const statusBadgeClass = `badge-status-${cleanStatus}`;
+
+    const budgetVal = parseFloat(inq.budget) || 0;
+    const formattedBudget = budgetVal > 0 ? `₹${budgetVal.toLocaleString('en-IN')}` : 'N/A';
+    const dateVal = inq.date || 'Flexible';
+    const dateStr = inq.createdAt ? new Date(inq.createdAt).toLocaleString('en-IN') : 'N/A';
+
+    tr.innerHTML = `
+      <td style="font-size: 11px; color: var(--text-muted);">${dateStr}</td>
+      <td><strong>${inq.name}</strong></td>
+      <td>
+        <div><i class="ti ti-phone" style="font-size:11px;"></i> ${inq.phone}</div>
+        ${inq.email ? `<div><i class="ti ti-mail" style="font-size:11px;"></i> ${inq.email}</div>` : ''}
+      </td>
+      <td>
+        <span class="badge badge-info">${inq.eventType || 'N/A'}</span>
+        <div style="font-weight:bold; margin-top:2px;">${formattedBudget}</div>
+      </td>
+      <td>
+        <div><i class="ti ti-calendar" style="font-size:11px;"></i> ${dateVal}</div>
+        <div style="font-size:11px; color:var(--text-muted);"><i class="ti ti-map-pin" style="font-size:11px;"></i> ${inq.venue || 'N/A'}</div>
+      </td>
+      <td>
+        <select class="form-control inline lead-status-select ${statusBadgeClass}" data-id="${inq.id}" style="width: auto; padding: 2px 8px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;">
+          <option value="pending" ${cleanStatus === 'pending' ? 'selected' : ''}>Pending</option>
+          <option value="approved" ${cleanStatus === 'approved' ? 'selected' : ''}>Approved</option>
+          <option value="booked" ${cleanStatus === 'booked' ? 'selected' : ''}>Booked</option>
+          <option value="follow_up" ${cleanStatus === 'follow_up' ? 'selected' : ''}>Follow up</option>
+        </select>
+      </td>
+    `;
+
+    const selectEl = tr.querySelector(".lead-status-select");
+    selectEl.addEventListener("change", async (e) => {
+      const newStatus = e.target.value;
+      selectEl.className = `form-control inline lead-status-select badge-status-${newStatus}`;
+      try {
+        inq.status = newStatus;
+        await supabaseClient.from('inquiries').update({ status: newStatus }).eq('id', inq.id);
+        logActivity("UPDATE_LEAD_STATUS", "inquiries", inq.id, { status: newStatus, name: inq.name });
+        showToast("Lead Status Updated", `Lead for ${inq.name} is now ${newStatus.toUpperCase()}`, "success");
+        await loadDatabase();
+        renderAllViews();
+      } catch (err) {
+        console.error("Failed to update inquiry status in Supabase:", err);
+        showToast("Error", "Could not update lead status", "danger");
+      }
+    });
+
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Chatbot Widget State Machine ---
+let chatbotState = {
+  step: 0,
+  data: {
+    name: "",
+    phone: "",
+    eventType: "",
+    venue: "",
+    date: "",
+    budget: ""
+  }
+};
+
+function initChatbot() {
+  const toggleBtn = document.getElementById("btn-chatbot-toggle");
+  const chatbotWindow = document.getElementById("chatbot-window");
+  const sendBtn = document.getElementById("btn-chatbot-send");
+  const textInput = document.getElementById("chatbot-text-input");
+  const messagesContainer = document.getElementById("chatbot-messages");
+
+  if (!toggleBtn || !chatbotWindow || !sendBtn || !textInput || !messagesContainer) return;
+
+  toggleBtn.addEventListener("click", () => {
+    const isHidden = chatbotWindow.style.display === "none";
+    if (isHidden) {
+      chatbotWindow.style.display = "flex";
+      toggleBtn.querySelector(".chatbot-open-icon").style.display = "none";
+      toggleBtn.querySelector(".chatbot-close-icon").style.display = "block";
+      
+      if (chatbotState.step === 6) {
+        resetChatbot();
+      }
+      textInput.focus();
+    } else {
+      chatbotWindow.style.display = "none";
+      toggleBtn.querySelector(".chatbot-open-icon").style.display = "block";
+      toggleBtn.querySelector(".chatbot-close-icon").style.display = "none";
+    }
+  });
+
+  sendBtn.addEventListener("click", () => {
+    handleChatbotInput();
+  });
+
+  textInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleChatbotInput();
+    }
+  });
+}
+
+function handleChatbotInput() {
+  const textInput = document.getElementById("chatbot-text-input");
+  if (!textInput) return;
+
+  const value = textInput.value.trim();
+  if (chatbotState.step !== 2 && chatbotState.step !== 4 && chatbotState.step !== 5 && !value) {
+    return;
+  }
+  if (chatbotState.step === 2 && !value) return;
+  if (chatbotState.step === 4 && !value) return;
+  if (chatbotState.step === 5 && !value) return;
+
+  appendChatBubble("client", value);
+  processChatbotStep(value);
+  textInput.value = "";
+}
+
+function appendChatBubble(sender, text) {
+  const messagesContainer = document.getElementById("chatbot-messages");
+  if (!messagesContainer) return;
+
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble ${sender}`;
+  bubble.innerHTML = text;
+  messagesContainer.appendChild(bubble);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+async function processChatbotStep(value) {
+  const textInput = document.getElementById("chatbot-text-input");
+  if (!textInput) return;
+
+  switch (chatbotState.step) {
+    case 0:
+      chatbotState.data.name = value;
+      chatbotState.step = 1;
+      appendChatBubble("assistant", `Nice to meet you, <strong>${value}</strong>! Can I have your <strong>Phone Number</strong> so we can get in touch?`);
+      textInput.type = "tel";
+      textInput.placeholder = "Type phone number here...";
+      break;
+
+    case 1:
+      chatbotState.data.phone = value;
+      chatbotState.step = 2;
+      appendChatBubble("assistant", `Got it! What type of event are we planning? You can click one of the options below or type it custom:`);
+      renderCategoryOptions();
+      textInput.type = "text";
+      textInput.placeholder = "Type category or select option...";
+      break;
+
+    case 2:
+      chatbotState.data.eventType = value;
+      chatbotState.step = 3;
+      removeCategoryOptionsUI();
+      appendChatBubble("assistant", `Excellent! A <strong>${value}</strong> sounds wonderful. Where is the **Venue / Location** you are planning to host this?`);
+      textInput.type = "text";
+      textInput.placeholder = "Type venue address/hotel name...";
+      break;
+
+    case 3:
+      chatbotState.data.venue = value;
+      chatbotState.step = 4;
+      appendChatBubble("assistant", `Great location choice. What is the scheduled **Date** for this event?`);
+      textInput.type = "date";
+      textInput.placeholder = "";
+      break;
+
+    case 4:
+      chatbotState.data.date = value;
+      chatbotState.step = 5;
+      appendChatBubble("assistant", `Perfect. And lastly, what is your estimated **Budget** in ₹ for the event?`);
+      textInput.type = "number";
+      textInput.placeholder = "Type estimated budget...";
+      break;
+
+    case 5:
+      chatbotState.data.budget = parseFloat(value) || 0;
+      chatbotState.step = 6;
+      appendChatBubble("assistant", `Almost done! We are registering your inquiry. Please wait a moment...`);
+      await submitInquiry();
+      break;
+
+    default:
+      break;
+  }
+}
+
+function renderCategoryOptions() {
+  const messagesContainer = document.getElementById("chatbot-messages");
+  if (!messagesContainer) return;
+
+  const container = document.createElement("div");
+  container.id = "chatbot-quick-options";
+  container.style.display = "flex";
+  container.style.flexWrap = "wrap";
+  container.style.gap = "6px";
+  container.style.marginTop = "6px";
+
+  const categories = ["Wedding", "Corporate Gala", "Birthday Party", "Custom Event"];
+  categories.forEach(cat => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn-outline btn-sm";
+    btn.style.padding = "4px 10px";
+    btn.style.fontSize = "12px";
+    btn.style.borderColor = "var(--brand-gold)";
+    btn.style.color = "var(--brand-gold)";
+    btn.style.borderRadius = "20px";
+    btn.style.cursor = "pointer";
+    btn.textContent = cat;
+    btn.addEventListener("click", () => {
+      const textInput = document.getElementById("chatbot-text-input");
+      if (textInput) {
+        textInput.value = cat;
+        handleChatbotInput();
+      }
+    });
+    container.appendChild(btn);
+  });
+
+  messagesContainer.appendChild(container);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function removeCategoryOptionsUI() {
+  const container = document.getElementById("chatbot-quick-options");
+  if (container) {
+    container.remove();
+  }
+}
+
+async function submitInquiry() {
+  const inputRow = document.getElementById("chatbot-input-row");
+  const textInput = document.getElementById("chatbot-text-input");
+  
+  const inquiryId = 'inq-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  
+  const payload = {
+    id: inquiryId,
+    name: chatbotState.data.name,
+    phone: chatbotState.data.phone,
+    email: null,
+    event_type: chatbotState.data.eventType,
+    date: chatbotState.data.date,
+    venue: chatbotState.data.venue,
+    budget: chatbotState.data.budget,
+    status: 'pending',
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    if (supabaseClient) {
+      const { error } = await supabaseClient.from('inquiries').insert(payload);
+      if (error) throw error;
+    }
+    
+    logActivity("SUBMIT_INQUIRY", "inquiries", inquiryId, { name: payload.name, phone: payload.phone, type: payload.event_type });
+
+    if (inputRow) inputRow.style.display = "none";
+    appendChatBubble("assistant", `🎉 <strong>Success!</strong> Your inquiry has been submitted.<br><br>Our Team will review the details and reach out on <strong>${payload.phone}</strong> shortly.<br><br>Have a great day!`);
+    
+  } catch (err) {
+    console.error("Failed to submit inquiry:", err);
+    appendChatBubble("assistant", `⚠️ Sorry, there was an error submitting your details. Please try again later.`);
+  }
+}
+
+function resetChatbot() {
+  chatbotState = {
+    step: 0,
+    data: {
+      name: "",
+      phone: "",
+      eventType: "",
+      venue: "",
+      date: "",
+      budget: ""
+    }
+  };
+
+  const inputRow = document.getElementById("chatbot-input-row");
+  const textInput = document.getElementById("chatbot-text-input");
+  const messagesContainer = document.getElementById("chatbot-messages");
+
+  if (inputRow) inputRow.style.display = "flex";
+  if (textInput) {
+    textInput.type = "text";
+    textInput.placeholder = "Type your name here...";
+    textInput.value = "";
+  }
+  if (messagesContainer) {
+    messagesContainer.innerHTML = `
+      <div class="chat-bubble assistant">
+        Hi! I am the digital event assistant for <strong>Aerosky Hospitality</strong>. 
+        Are you planning an upcoming wedding, corporate gala, or family function? 
+        Let me help you check availability and estimate budgets!
+      </div>
+      <div class="chat-bubble assistant">
+        To get started, may I know your <strong>Full Name</strong>?
+      </div>
+    `;
+  }
 }

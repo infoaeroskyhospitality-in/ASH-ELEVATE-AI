@@ -119,6 +119,9 @@
             <i class="ti ti-ticket"></i> Issues Inbox
             <span class="sidebar-badge" id="issues-badge">0</span>
           </button>
+          <button class="nav-item" data-tab="leads">
+            <i class="ti ti-inbox"></i> Leads Inbox
+          </button>
           <button class="nav-item" data-tab="activity-logs">
             <i class="ti ti-history"></i> Activity Logs
           </button>
@@ -332,6 +335,33 @@
 
             <div class="issues-inbox-grid" id="issues-inbox-list">
               <!-- Dynamically populated -->
+            </div>
+          </section>
+
+          <!-- LEADS INBOX TAB -->
+          <section class="tab-panel" id="panel-leads">
+            <div class="tab-header">
+              <h1>Leads & Booking Inquiries</h1>
+              <p>Review and qualify inquiries submitted by potential clients via the Event Assistant chatbot.</p>
+            </div>
+
+            <div class="data-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Lead Name</th>
+                    <th>Contact Info</th>
+                    <th>Event Category & Budget</th>
+                    <th>Scheduled Date & Venue</th>
+                    <th>Inquiry Status</th>
+                  </tr>
+                </thead>
+                <tbody id="table-leads-body">
+                  <!-- Dynamically populated -->
+                  <tr><td colspan="6" class="empty-msg" style="text-align:center;">Loading lead entries...</td></tr>
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -757,14 +787,20 @@
             <select id="assign-staff-id" class="form-control" required>
               <!-- Populated dynamically -->
             </select>
-            <select id="assign-staff-role" class="form-control" required>
-              <option value="Chef">Chef</option>
-              <option value="Helper">Kitchen Helper</option>
-              <option value="Waiter">Waiter</option>
-              <option value="Tandoor">Tandoor Specialist</option>
-              <option value="Dishwasher">Dishwasher</option>
-              <option value="Site Manager">Site Assistant Manager</option>
-            </select>
+            <div>
+              <select id="assign-staff-role" class="form-control" required>
+                <option value="Chef">Chef</option>
+                <option value="Helper">Kitchen Helper</option>
+                <option value="Waiter">Waiter</option>
+                <option value="Tandoor">Tandoor Specialist</option>
+                <option value="Dishwasher">Dishwasher</option>
+                <option value="Site Manager">Site Assistant Manager</option>
+                <option value="custom">Custom...</option>
+              </select>
+              <div id="assign-staff-role-custom-group" style="display: none; margin-top: 10px;">
+                <input type="text" id="assign-staff-role-custom" class="form-control" placeholder="Enter Custom Role">
+              </div>
+            </div>
             <input type="number" id="assign-staff-days" class="form-control" placeholder="Days Worked" min="1" value="1" required>
             <button type="submit" class="btn btn-primary">Add Staff</button>
           </div>
@@ -892,6 +928,52 @@
 
   <!-- Real-Time Toast Notification Overlay -->
   <div id="toast-container" class="toast-container"></div>
+
+  <!-- Floating Chatbot Widget (Visible to potential clients when logged out) -->
+  <div class="chatbot-widget" id="chatbot-widget">
+    <!-- Chat Toggle Button -->
+    <button type="button" class="chatbot-toggle-btn" id="btn-chatbot-toggle" title="Chat with Event Assistant">
+      <i class="ti ti-brand-messenger chatbot-open-icon"></i>
+      <i class="ti ti-x chatbot-close-icon" style="display: none;"></i>
+      <span class="chatbot-badge">Enquire Now</span>
+    </button>
+    
+    <!-- Chat Window Box -->
+    <div class="chatbot-window" id="chatbot-window" style="display: none;">
+      <!-- Chat Header -->
+      <header class="chat-header">
+        <div class="chat-owner-avatar">
+          <img src="owner.jpg" alt="Aerosky Assistant Profile">
+          <span class="chat-status-dot"></span>
+        </div>
+        <div class="chat-header-info">
+          <h4>Aerosky Assistant</h4>
+          <p><i class="ti ti-circle-check" style="color: var(--brand-gold);"></i> Verified Event Consultant</p>
+        </div>
+      </header>
+      
+      <!-- Chat Body -->
+      <div class="chat-body" id="chatbot-messages">
+        <!-- Welcoming Message -->
+        <div class="chat-bubble assistant">
+          Hi! I am the digital event assistant for <strong>Aerosky Hospitality</strong>. 
+          Are you planning an upcoming wedding, corporate gala, or family function? 
+          Let me help you check availability and estimate budgets!
+        </div>
+        <div class="chat-bubble assistant">
+          To get started, may I know your <strong>Full Name</strong>?
+        </div>
+      </div>
+      
+      <!-- Chat Input Area -->
+      <div class="chat-input-row" id="chatbot-input-row">
+        <input type="text" id="chatbot-text-input" class="form-control" placeholder="Type your name here..." required>
+        <button type="button" class="btn btn-primary btn-icon" id="btn-chatbot-send" title="Send message">
+          <i class="ti ti-send"></i>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- jsPDF Library for invoice exports -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
