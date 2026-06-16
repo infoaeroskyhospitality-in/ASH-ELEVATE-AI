@@ -1837,142 +1837,223 @@ function loadVendorPortalView() {
 // --- Service Boy Portal View (Crew Check-In, Schedule & Payouts) ---
 function loadServiceBoyPortalView() {
   if (!loggedInUser || loggedInUser.role !== "service_boy") return;
-  const staffId = loggedInUser.id; // Enforce logged-in ID
-  
+  const staffId = loggedInUser.id;
+
   const staff = db.serviceBoys.find(s => s.id === staffId);
   if (!staff) return;
-  
-  // Render crew header details
+
+  // Update portal title
   const portalTitle = document.getElementById("sb-portal-title");
-  if (portalTitle) {
-    portalTitle.textContent = `${staff.name}'s Portal`;
-  }
-  
-  // Check active assignments
+  if (portalTitle) portalTitle.textContent = `${staff.name}'s Portal`;
+
+  // All assignments for this staff member
   const myAssignments = db.assignments.filter(a => a.serviceBoyId === staffId);
-  const presentDays = myAssignments.filter(a => a.status === "present").reduce((sum, a) => sum + a.daysWorked, 0);
-  const totalEarned = presentDays * staff.rate;
-  
-  // Populate Home Metrics
-  const rateVal = document.getElementById("sb-rate-val");
-  const daysVal = document.getElementById("sb-days-val");
-  const totalVal = document.getElementById("sb-total-val");
-  
-  if (rateVal) rateVal.textContent = "₹" + staff.rate;
-  if (daysVal) daysVal.textContent = presentDays + " days";
-  if (totalVal) totalVal.textContent = "₹" + totalEarned.toLocaleString('en-IN');
-  
-  // Check attendance widget status
-  const checkinStatus = document.getElementById("sb-checkin-status");
-  const checkinBtn = document.getElementById("btn-sb-checkin");
-  
-  // Find if there is an assignment scheduled for today (or confirmed events)
-  const activeAssign = myAssignments.find(a => a.status === "assigned");
-  
-  if (activeAssign) {
-    if (checkinStatus) {
-      checkinStatus.textContent = "Duty Logged (Pending Check-In)";
-      checkinStatus.className = "checkin-status";
-    }
-    if (checkinBtn) {
-      checkinBtn.style.display = "block";
-      
-      // GPS Check-in Handler
-      checkinBtn.onclick = async () => {
-        const event = db.events.find(e => e.id === activeAssign.eventId);
-        if (!event) {
-          alert("Error: Event details not found.");
-          return;
-        }
+  const presentAssignments = myAssignments.filter(a => a.status === "present");
+  const pendingAssignments = myAssignments.filter(a => a.status === "assigned");
 
-        checkinBtn.disabled = true;
-        checkinBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Fetching Location...`;
+  const presentCount = presentAssignments.length;
+  const totalEarned = presentAssignments.reduce((sum, a) => sum + (a.daysWorked * staff.rate), 0);
+  const pendingCount = pendingAssignments.length;
 
-        if (!navigator.geolocation) {
-          alert("Geolocation is not supported by your browser. Please contact your site manager.");
-          checkinBtn.disabled = false;
-          checkinBtn.innerHTML = "Check Attendance";
-          return;
-        }
+  // --- HOME TAB: Metrics ---
+  const rateVal    = document.getElementById("sb-rate-val");
+  const daysVal    = document.getElementById("sb-days-val");
+  const totalVal   = document.getElementById("sb-total-val");
+  const pendingVal = document.getElementById("sb-pending-val");
 
-        const proceedCheckin = async (assignment, verificationDetails) => {
-          assignment.status = "present";
-          try {
-            await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', assignment.id);
-            logActivity("STAFF_CHECKIN", "assignments", assignment.id, {
-              serviceBoyId: staffId,
-              eventId: assignment.eventId,
-              verification: verificationDetails
-            });
-            await loadDatabase();
-            loadServiceBoyPortalView();
-            renderAllViews();
-            alert("Attendance checked successfully! Your wage ledger is updated.");
-          } catch (err) {
-            console.error("Failed to check-in in Supabase:", err);
-            alert("Failed to save check-in details. Please try again.");
-            checkinBtn.disabled = false;
-            checkinBtn.innerHTML = "Check Attendance";
+  if (rateVal)    rateVal.textContent    = "₹" + staff.rate.toLocaleString('en-IN');
+  if (daysVal)    daysVal.textContent    = presentCount;
+  if (totalVal)   totalVal.textContent   = "₹" + totalEarned.toLocaleString('en-IN');
+  if (pendingVal) pendingVal.textContent = pendingCount;
+
+  // --- ATTENDANCE TAB: Event Dropdown ---
+  const eventSelect = document.getElementById("sb-attend-event-select");
+  if (eventSelect) {
+    eventSelect.innerHTML = `<option value="">-- Choose an event --</option>`;
+
+    // Show ALL assigned events (both pending and already present — so they can see status)
+    myAssignments.forEach(a => {
+      const ev = db.events.find(x => x.id === a.eventId);
+      if (!ev) return;
+      const label = a.status === "present"
+        ? `${ev.name} (${ev.date}) ✓ Already Marked`
+        : `${ev.name} (${ev.date}) — Pending`;
+      const opt = document.createElement("option");
+      opt.value = a.id;
+      opt.textContent = label;
+      eventSelect.appendChild(opt);
+    });
+
+    // Elements inside attendance panel
+    const preview      = document.getElementById("sb-attend-event-preview");
+    const alreadyBox   = document.getElementById("sb-attend-already-marked");
+    const markBtn      = document.getElementById("btn-sb-mark-attend");
+    const gpsFeedback  = document.getElementById("sb-gps-feedback");
+
+    const resetAttendancePanel = () => {
+      if (preview)     preview.style.display     = "none";
+      if (alreadyBox)  alreadyBox.style.display  = "none";
+      if (markBtn)     markBtn.style.display      = "none";
+      if (gpsFeedback) { gpsFeedback.style.display = "none"; gpsFeedback.textContent = ""; }
+    };
+
+    // On dropdown change → update preview card
+    eventSelect.onchange = () => {
+      resetAttendancePanel();
+      const assignId = eventSelect.value;
+      if (!assignId) return;
+
+      const assignment = myAssignments.find(a => a.id === assignId);
+      if (!assignment) return;
+      const ev = db.events.find(x => x.id === assignment.eventId);
+      if (!ev) return;
+
+      // Fill preview fields
+      const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      setTxt("sb-preview-name",  ev.name);
+      setTxt("sb-preview-date",  ev.date);
+      setTxt("sb-preview-venue", ev.venue);
+      setTxt("sb-preview-role",  assignment.role);
+
+      const hasCoords = ev.latitude != null && ev.longitude != null && !isNaN(ev.latitude) && !isNaN(ev.longitude);
+      const gpsEl = document.getElementById("sb-preview-gps");
+      if (gpsEl) {
+        gpsEl.textContent = hasCoords ? "Required (GPS enabled)" : "Not Required (No coords set)";
+        gpsEl.style.color = hasCoords ? "var(--brand-gold)" : "var(--text-muted)";
+      }
+
+      const statusEl = document.getElementById("sb-preview-status");
+      if (statusEl) {
+        const badgeColor = assignment.status === "present" ? "#22c55e" : assignment.status === "absent" ? "#ef4444" : "#f59e0b";
+        statusEl.innerHTML = `<span style="font-weight:700; color:${badgeColor};">${assignment.status.toUpperCase()}</span>`;
+      }
+
+      if (preview) preview.style.display = "block";
+
+      // Already present — show green notice, hide button
+      if (assignment.status === "present") {
+        if (alreadyBox) alreadyBox.style.display = "block";
+        if (markBtn)    markBtn.style.display      = "none";
+        return;
+      }
+
+      // Pending — show the mark attendance button
+      if (markBtn) {
+        markBtn.style.display = "block";
+        markBtn.disabled = false;
+        markBtn.innerHTML = `<i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present`;
+
+        // Remove any previously attached click handler
+        markBtn.onclick = null;
+
+        markBtn.onclick = async () => {
+          if (gpsFeedback) {
+            gpsFeedback.style.display = "block";
+            gpsFeedback.style.background = "rgba(197,155,39,0.1)";
+            gpsFeedback.style.border = "1px solid rgba(197,155,39,0.3)";
+            gpsFeedback.style.color = "var(--brand-gold)";
+            gpsFeedback.innerHTML = `<i class="ti ti-loader" style="animation:spin 1s linear infinite;"></i>&nbsp; Fetching your GPS location...`;
           }
-        };
+          markBtn.disabled = true;
+          markBtn.innerHTML = `<i class="ti ti-loader" style="animation:spin 1s linear infinite;"></i>&nbsp; Verifying...`;
 
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const userLat = position.coords.latitude;
-            const userLng = position.coords.longitude;
-            
-            if (event.latitude === null || event.longitude === null || isNaN(event.latitude) || isNaN(event.longitude)) {
-              await proceedCheckin(activeAssign, "Bypassed GPS (No Event Coordinates Set)");
-              return;
-            }
+          if (!navigator.geolocation) {
+            showGpsFeedback("error", "Geolocation is not supported by your browser.");
+            markBtn.disabled = false;
+            markBtn.innerHTML = `<i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present`;
+            return;
+          }
 
-            const distance = calculateDistance(userLat, userLng, event.latitude, event.longitude);
-
-            if (distance <= 100) {
-              await proceedCheckin(activeAssign, `GPS Verified (Distance: ${Math.round(distance)}m)`);
-            } else {
-              alert(`Check-in failed. You must be at the event venue to check in.\n\nYour current location is ${Math.round(distance)} meters away from the venue.`);
-              checkinBtn.disabled = false;
-              checkinBtn.innerHTML = "Check Attendance";
-              
-              logActivity("CHECKIN_FAILED_GPS", "assignments", activeAssign.id, {
+          const proceedCheckin = async (verificationDetails) => {
+            assignment.status = "present";
+            try {
+              await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', assignment.id);
+              logActivity("STAFF_CHECKIN", "assignments", assignment.id, {
                 serviceBoyId: staffId,
-                eventId: event.id,
-                distance: `${Math.round(distance)}m`,
-                userCoords: { latitude: userLat, longitude: userLng },
-                eventCoords: { latitude: event.latitude, longitude: event.longitude }
+                eventId: assignment.eventId,
+                verification: verificationDetails
               });
+              await loadDatabase();
+              showGpsFeedback("success", `✓ Attendance marked successfully! ${verificationDetails}`);
+              markBtn.style.display = "none";
+              if (alreadyBox) alreadyBox.style.display = "block";
+              loadServiceBoyPortalView();
+              renderAllViews();
+            } catch (err) {
+              console.error("Check-in failed:", err);
+              showGpsFeedback("error", "Failed to save attendance. Please try again.");
+              markBtn.disabled = false;
+              markBtn.innerHTML = `<i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present`;
             }
-          },
-          (error) => {
-            console.error("Geolocation error:", error);
-            let errMsg = "Unable to retrieve your location. Please check your device location settings and permissions.";
-            if (error.code === error.PERMISSION_DENIED) {
-              errMsg = "Location permission denied. You must allow location access to check-in.";
+          };
+
+          const showGpsFeedback = (type, msg) => {
+            if (!gpsFeedback) return;
+            gpsFeedback.style.display = "block";
+            if (type === "success") {
+              gpsFeedback.style.background = "rgba(34,197,94,0.08)";
+              gpsFeedback.style.border = "1px solid rgba(34,197,94,0.3)";
+              gpsFeedback.style.color = "#22c55e";
+            } else if (type === "error") {
+              gpsFeedback.style.background = "rgba(239,68,68,0.08)";
+              gpsFeedback.style.border = "1px solid rgba(239,68,68,0.3)";
+              gpsFeedback.style.color = "#ef4444";
+            } else {
+              gpsFeedback.style.background = "rgba(197,155,39,0.08)";
+              gpsFeedback.style.border = "1px solid rgba(197,155,39,0.3)";
+              gpsFeedback.style.color = "var(--brand-gold)";
             }
-            alert(errMsg);
-            checkinBtn.disabled = false;
-            checkinBtn.innerHTML = "Check Attendance";
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-      };
-    }
-  } else {
-    const hasPresent = myAssignments.some(a => a.status === "present");
-    if (checkinStatus) {
-      checkinStatus.textContent = hasPresent ? "Checked-In (Active)" : "No Duty Assigned Today";
-      checkinStatus.className = `checkin-status ${hasPresent ? 'logged' : ''}`;
-    }
-    if (checkinBtn) checkinBtn.style.display = "none";
+            gpsFeedback.textContent = msg;
+          };
+
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const userLat = position.coords.latitude;
+              const userLng = position.coords.longitude;
+
+              const hasCoords = ev.latitude != null && ev.longitude != null && !isNaN(ev.latitude) && !isNaN(ev.longitude);
+              if (!hasCoords) {
+                await proceedCheckin("Bypassed GPS (No venue coordinates set for this event)");
+                return;
+              }
+
+              const distance = calculateDistance(userLat, userLng, ev.latitude, ev.longitude);
+
+              if (distance <= 100) {
+                await proceedCheckin(`GPS Verified — ${Math.round(distance)}m from venue`);
+              } else {
+                showGpsFeedback("error", `✗ Check-in failed. You are ${Math.round(distance)}m away from the venue. You must be within 100m.`);
+                logActivity("CHECKIN_FAILED_GPS", "assignments", assignment.id, {
+                  serviceBoyId: staffId,
+                  eventId: ev.id,
+                  distance: `${Math.round(distance)}m`,
+                  userCoords: { latitude: userLat, longitude: userLng },
+                  eventCoords: { latitude: ev.latitude, longitude: ev.longitude }
+                });
+                markBtn.disabled = false;
+                markBtn.innerHTML = `<i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present`;
+              }
+            },
+            (error) => {
+              let errMsg = "Unable to retrieve your location. Check device location permissions.";
+              if (error.code === error.PERMISSION_DENIED) errMsg = "Location permission denied. Please allow location access.";
+              showGpsFeedback("error", "✗ " + errMsg);
+              markBtn.disabled = false;
+              markBtn.innerHTML = `<i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present`;
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        };
+      }
+    };
   }
-  
-  // Render Schedule Table
+
+  // --- SCHEDULE TAB: Table ---
   const scheduleTbody = document.getElementById("sb-table-schedule-body");
   if (scheduleTbody) {
     scheduleTbody.innerHTML = "";
     if (myAssignments.length === 0) {
-      scheduleTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No duties assigned.</td></tr>`;
+      scheduleTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No duties assigned.</td></tr>`;
     } else {
       myAssignments.forEach(a => {
         const e = db.events.find(x => x.id === a.eventId) || { name: "Removed Event", venue: "N/A", date: "N/A" };
@@ -1983,36 +2064,31 @@ function loadServiceBoyPortalView() {
           <td>${e.venue}</td>
           <td>${a.role}</td>
           <td>${a.daysWorked} days</td>
-          <td>
-            <span class="badge badge-${a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}">
-              ${a.status.toUpperCase()}
-            </span>
-          </td>
+          <td><span class="badge badge-${a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}">${a.status.toUpperCase()}</span></td>
         `;
         scheduleTbody.appendChild(tr);
       });
     }
   }
 
-  // Render Payouts Table
+  // --- PAYOUTS TAB: Table ---
   const payoutsTbody = document.getElementById("sb-table-payouts-body");
   if (payoutsTbody) {
     payoutsTbody.innerHTML = "";
-    const presentAssignments = myAssignments.filter(a => a.status === "present");
     if (presentAssignments.length === 0) {
-      payoutsTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No earnings logged yet.</td></tr>`;
+      payoutsTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted);">No earnings logged yet.</td></tr>`;
     } else {
       presentAssignments.forEach(a => {
         const e = db.events.find(x => x.id === a.eventId) || { name: "Removed Event", date: "N/A" };
-        const tr = document.createElement("tr");
         const wage = a.daysWorked * staff.rate;
+        const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><strong>${e.name}</strong></td>
           <td>${e.date}</td>
           <td>${a.role}</td>
-          <td>₹${staff.rate}/day</td>
+          <td>₹${staff.rate.toLocaleString('en-IN')}/day</td>
           <td>${a.daysWorked} days</td>
-          <td><strong>₹${wage.toLocaleString('en-IN')}</strong></td>
+          <td><strong style="color:var(--brand-gold);">₹${wage.toLocaleString('en-IN')}</strong></td>
         `;
         payoutsTbody.appendChild(tr);
       });

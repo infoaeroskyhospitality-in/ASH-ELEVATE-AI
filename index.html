@@ -552,9 +552,12 @@
           </div>
 
           <!-- Tabs for Crew Navigation -->
-          <div class="tab-nav-wrapper" style="margin-bottom: 1.5rem; display: flex; gap: 10px;">
+          <div class="tab-nav-wrapper" style="margin-bottom: 1.5rem; display: flex; gap: 10px; flex-wrap: wrap;">
             <button class="tab-item active" id="tab-sb-home" data-sb-tab="home" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
               <i class="ti ti-home"></i> Home
+            </button>
+            <button class="tab-item" id="tab-sb-attendance" data-sb-tab="attendance" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ti ti-checkbox"></i> Mark Attendance
             </button>
             <button class="tab-item" id="tab-sb-schedule" data-sb-tab="schedule" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
               <i class="ti ti-calendar"></i> My Duty Schedule
@@ -564,34 +567,112 @@
             </button>
           </div>
 
-          <!-- Panel 1: HOME (Attendance Check-In & Earnings Summary) -->
+          <!-- Panel 1: HOME (Earnings Summary) -->
           <div class="sb-panel active" id="sb-panel-home">
             <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 1.5rem;">
-              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
-                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Daily Wage Rate</span>
-                <h3 id="sb-rate-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">₹0</h3>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px; border-top: 3px solid var(--brand-gold);">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; display:block; margin-bottom:4px;">Daily Wage Rate</span>
+                <h3 id="sb-rate-val" style="margin: 5px 0; font-size: 28px; color: var(--brand-gold);">₹0</h3>
               </div>
-              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
-                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Days Present</span>
-                <h3 id="sb-days-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">0</h3>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px; border-top: 3px solid #22c55e;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; display:block; margin-bottom:4px;">Events Attended</span>
+                <h3 id="sb-days-val" style="margin: 5px 0; font-size: 28px; color: #22c55e;">0</h3>
               </div>
-              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
-                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Total Wages Earned</span>
-                <h3 id="sb-total-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">₹0</h3>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px; border-top: 3px solid var(--brand-green);">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; display:block; margin-bottom:4px;">Total Wages Earned</span>
+                <h3 id="sb-total-val" style="margin: 5px 0; font-size: 28px; color: var(--brand-green);">₹0</h3>
+              </div>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px; border-top: 3px solid #f59e0b;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; display:block; margin-bottom:4px;">Pending Duties</span>
+                <h3 id="sb-pending-val" style="margin: 5px 0; font-size: 28px; color: #f59e0b;">0</h3>
               </div>
             </div>
 
-            <!-- Attendance check-in card -->
-            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px; margin-bottom: 1.5rem; border-left: 4px solid var(--brand-green);">
-              <h3 style="margin-top: 0; font-size: 15px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Today's Check-In Status</h3>
-              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
-                <span id="sb-checkin-status" style="font-size: 16px; font-weight: bold;">Loading status...</span>
-                <button class="btn btn-primary" id="btn-sb-checkin" style="display: none; padding: 8px 20px;">Check Attendance</button>
-              </div>
+            <!-- Quick-action CTA card -->
+            <div style="background: linear-gradient(135deg, rgba(13,107,62,0.12) 0%, rgba(197,155,39,0.08) 100%); border: 1px solid rgba(197,155,39,0.35); padding: 2.5rem 2rem; border-radius: 10px; text-align: center;">
+              <i class="ti ti-map-pin-check" style="font-size: 56px; color: var(--brand-gold); display: block; margin-bottom: 1rem;"></i>
+              <h3 style="margin: 0 0 0.5rem; font-size: 20px;">Ready to mark today's attendance?</h3>
+              <p style="color: var(--text-muted); margin: 0 0 1.75rem; font-size: 14px;">Pick your assigned event, let the system verify your GPS location, and your attendance is logged instantly.</p>
+              <button class="btn btn-primary" onclick="document.getElementById('tab-sb-attendance').click()" style="padding: 12px 32px; font-size: 15px;">
+                <i class="ti ti-checkbox"></i>&nbsp; Go to Mark Attendance
+              </button>
             </div>
           </div>
 
-          <!-- Panel 2: SCHEDULE -->
+          <!-- Panel 2: MARK ATTENDANCE -->
+          <div class="sb-panel" id="sb-panel-attendance" style="display: none;">
+            <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 2rem; border-radius: 10px; max-width: 640px; margin: 0 auto;">
+
+              <!-- Panel header -->
+              <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 1.75rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-color);">
+                <div style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--brand-green), var(--brand-green-hover)); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                  <i class="ti ti-map-pin" style="font-size: 24px; color: #fff;"></i>
+                </div>
+                <div>
+                  <h2 style="margin: 0; font-size: 18px;">Mark Attendance</h2>
+                  <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-muted);">Select your assigned event below. The system will verify your GPS coordinates against the venue location.</p>
+                </div>
+              </div>
+
+              <!-- Step 1: Select event -->
+              <div style="margin-bottom: 1.25rem;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.6px; display: block; margin-bottom: 8px;">
+                  <i class="ti ti-calendar-event"></i>&nbsp; Select Your Assigned Event
+                </label>
+                <select id="sb-attend-event-select" class="form-control" style="font-size: 14px;">
+                  <option value="">-- Choose an event --</option>
+                </select>
+              </div>
+
+              <!-- Event info preview card (shown on selection) -->
+              <div id="sb-attend-event-preview" style="display:none; background: var(--bg-app); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.2rem; margin-bottom: 1.25rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Event Name</span>
+                    <strong id="sb-preview-name">—</strong>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Event Date</span>
+                    <strong id="sb-preview-date">—</strong>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Venue</span>
+                    <strong id="sb-preview-venue">—</strong>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Your Role</span>
+                    <strong id="sb-preview-role">—</strong>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">GPS Verification</span>
+                    <span id="sb-preview-gps" style="font-weight: 600;">—</span>
+                  </div>
+                  <div>
+                    <span style="color: var(--text-muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; display: block;">Current Status</span>
+                    <span id="sb-preview-status">—</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Already marked notice -->
+              <div id="sb-attend-already-marked" style="display:none; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; text-align: center;">
+                <i class="ti ti-circle-check" style="font-size: 36px; color: #22c55e; display: block; margin-bottom: 8px;"></i>
+                <strong style="color: #22c55e; font-size: 15px;">Attendance already marked as PRESENT for this event.</strong>
+                <p style="color: var(--text-muted); font-size: 13px; margin: 6px 0 0;">Your wages have been logged in the Payouts Ledger.</p>
+              </div>
+
+              <!-- Mark Attendance CTA Button -->
+              <button class="btn btn-primary" id="btn-sb-mark-attend" style="width: 100%; padding: 13px; font-size: 15px; display: none; border-radius: 8px;">
+                <i class="ti ti-map-pin-check"></i>&nbsp; Verify Location &amp; Mark Present
+              </button>
+
+              <!-- GPS feedback bar -->
+              <div id="sb-gps-feedback" style="display:none; margin-top: 1.25rem; padding: 1rem 1.25rem; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 600;"></div>
+
+            </div>
+          </div>
+
+          <!-- Panel 3: SCHEDULE -->
           <div class="sb-panel" id="sb-panel-schedule" style="display: none;">
             <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px;">
               <h2 style="margin-top: 0; font-size: 16px; margin-bottom: 1rem;">Assigned Duty List</h2>
@@ -616,7 +697,7 @@
             </div>
           </div>
 
-          <!-- Panel 3: PAYOUTS -->
+          <!-- Panel 4: PAYOUTS -->
           <div class="sb-panel" id="sb-panel-payouts" style="display: none;">
             <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px;">
               <h2 style="margin-top: 0; font-size: 16px; margin-bottom: 1rem;">Wage Earnings & Payout Logs</h2>
