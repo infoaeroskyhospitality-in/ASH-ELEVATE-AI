@@ -2864,7 +2864,8 @@ function renderLeadsTab() {
         renderAllViews();
       } catch (err) {
         console.error("Failed to update inquiry status in Supabase:", err);
-        showToast("Error", "Could not update lead status", "danger");
+        showToast("Database Error", err.message || "Could not update lead status", "danger");
+        alert("Database Sync Error: " + (err.message || err));
       }
     });
 
