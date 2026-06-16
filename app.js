@@ -626,6 +626,31 @@ function initLoginHandlers() {
     console.error("Firebase reCAPTCHA Initialization failed: ", err);
   }
 
+// Extract first 6 numbers from Service Boy phone number as password
+function getServiceBoyPassword(phone) {
+  if (!phone) return "";
+  let digits = phone.replace(/\D/g, ""); // extract all digits
+  if (digits.length === 12 && digits.startsWith("91")) {
+    digits = digits.substring(2);
+  } else if (digits.length === 11 && digits.startsWith("0")) {
+    digits = digits.substring(1);
+  }
+  return digits.substring(0, 6);
+}
+
+function initLoginHandlers() {
+  const form = document.getElementById("form-login");
+  const phoneInput = document.getElementById("login-phone");
+  
+  // Setup Firebase invisible reCAPTCHA Verifier
+  try {
+    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+      'size': 'invisible'
+    });
+  } catch (err) {
+    console.error("Firebase reCAPTCHA Initialization failed: ", err);
+  }
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const phoneVal = phoneInput.value.trim();
@@ -645,6 +670,33 @@ function initLoginHandlers() {
       alert("Error: No phone number linked to this profile.");
       return;
     }
+
+    // If the user is a service boy, bypass Firebase OTP and use password
+    if (account.role === "service_boy") {
+      document.getElementById("login-credentials-section").style.display = "none";
+      document.getElementById("login-otp-section").style.display = "block";
+      
+      const label = document.querySelector("#login-otp-section label");
+      if (label) label.textContent = "Enter 6-Digit Password";
+      
+      const subtext = document.getElementById("otp-phone-subtext");
+      if (subtext) subtext.textContent = "Please enter your 6-digit login password (the first 6 digits of your phone number).";
+      
+      const verifyBtn = document.getElementById("btn-verify-otp");
+      if (verifyBtn) verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify Password & Log In`;
+      
+      return;
+    }
+
+    // Normal Firebase SMS OTP verification flow
+    const label = document.querySelector("#login-otp-section label");
+    if (label) label.textContent = "Enter 6-Digit OTP Code";
+    
+    const subtext = document.getElementById("otp-phone-subtext");
+    if (subtext) subtext.textContent = "An SMS with the OTP has been sent to your registered mobile phone.";
+    
+    const verifyBtn = document.getElementById("btn-verify-otp");
+    if (verifyBtn) verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify OTP & Log In`;
 
     const appVerifier = window.recaptchaVerifier;
     
@@ -674,11 +726,11 @@ function initLoginHandlers() {
       });
   });
 
-  // Verify OTP button
+  // Verify OTP / Password button
   document.getElementById("btn-verify-otp").addEventListener("click", () => {
     const code = document.getElementById("login-otp").value.trim();
     if (code.length !== 6) {
-      alert("Please enter a valid 6-digit OTP code!");
+      alert(activeTempUser && activeTempUser.role === "service_boy" ? "Please enter a valid 6-digit password!" : "Please enter a valid 6-digit OTP code!");
       return;
     }
 
@@ -686,6 +738,31 @@ function initLoginHandlers() {
     verifyBtn.disabled = true;
     verifyBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Verifying...`;
 
+    // Service boy login check (direct client-side matching of digits)
+    if (activeTempUser && activeTempUser.role === "service_boy") {
+      const expectedPassword = getServiceBoyPassword(activeTempUser.phone);
+      if (code === expectedPassword) {
+        loggedInUser = activeTempUser;
+        sessionStorage.setItem("aerosky_logged_in_user", JSON.stringify(loggedInUser));
+        
+        document.getElementById("login-credentials-section").style.display = "block";
+        document.getElementById("login-otp-section").style.display = "none";
+        document.getElementById("login-otp").value = "";
+        form.reset();
+        
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify OTP & Log In`;
+        
+        loginSuccess(loggedInUser);
+      } else {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify Password & Log In`;
+        alert("Incorrect password! Please try again.");
+      }
+      return;
+    }
+
+    // Normal Firebase OTP Confirm
     window.confirmationResult.confirm(code)
       .then((result) => {
         // Authenticated!
