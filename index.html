@@ -33,8 +33,12 @@
         <div id="login-credentials-section">
           <div class="form-group">
             <label for="login-phone">Mobile Number</label>
-            <input type="tel" id="login-phone" class="form-control" placeholder="e.g. +91 98113 39509" required autocomplete="tel">
-            <small class="help-text" style="display: block; margin-top: 0.25rem; font-size: 11px; color: var(--text-muted);">Enter your registered number with country code (e.g. +91).</small>
+            <div style="display: flex; align-items: center; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--border-radius-sm); padding: 0 12px; gap: 8px;">
+              <span style="font-weight: bold; color: var(--text-muted); font-size: 14px; user-select: none;">+91</span>
+              <div style="width: 1px; height: 18px; background-color: var(--border-color);"></div>
+              <input type="tel" id="login-phone" class="form-control" placeholder="98113 39509" required autocomplete="tel" style="border: none; background: transparent; padding: 10px 0; outline: none; box-shadow: none; font-size: 14px; width: 100%;">
+            </div>
+            <small class="help-text" style="display: block; margin-top: 0.25rem; font-size: 11px; color: var(--text-muted);">Enter your 10-digit registered mobile number.</small>
           </div>
           
           <button type="submit" class="btn btn-primary btn-block btn-login-submit" id="btn-login-submit">

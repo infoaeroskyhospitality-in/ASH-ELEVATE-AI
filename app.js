@@ -664,11 +664,17 @@ function initLoginHandlers() {
     }
 
     activeTempUser = account;
-    const phoneNumber = account.phone;
+    let phoneNumber = account.phone;
 
     if (!phoneNumber) {
       alert("Error: No phone number linked to this profile.");
       return;
+    }
+
+    // Ensure +91 country code prefix is present for Firebase SMS OTP delivery
+    if (phoneNumber && !phoneNumber.startsWith("+")) {
+      const localDigits = phoneNumber.replace(/\D/g, "").slice(-10);
+      phoneNumber = "+91" + localDigits;
     }
 
     // Bypass Firebase OTP for Admin, Vendors, and Service Boys
