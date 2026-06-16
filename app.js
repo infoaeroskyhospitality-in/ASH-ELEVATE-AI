@@ -614,19 +614,6 @@ function checkAuthSession() {
   }
 }
 
-function initLoginHandlers() {
-  const form = document.getElementById("form-login");
-  const phoneInput = document.getElementById("login-phone");
-  
-  // Setup Firebase invisible reCAPTCHA Verifier
-  try {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-      'size': 'invisible'
-    });
-  } catch (err) {
-    console.error("Firebase reCAPTCHA Initialization failed: ", err);
-  }
-
 // Extract first 6 numbers from Service Boy phone number as password
 function getServiceBoyPassword(phone) {
   if (!phone) return "";
