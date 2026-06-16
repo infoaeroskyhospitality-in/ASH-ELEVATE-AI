@@ -3259,6 +3259,10 @@ async function submitInquiry() {
     if (inputRow) inputRow.style.display = "none";
     appendChatBubble("assistant", `🎉 <strong>Success!</strong> Your inquiry has been submitted.<br><br>Our Team will review the details and reach out on <strong>${payload.phone}</strong> shortly.<br><br>Have a great day!`);
     
+    // Automatically reload database & re-render the admin views immediately
+    await loadDatabase();
+    renderAllViews();
+    
   } catch (err) {
     console.error("Failed to submit inquiry:", err);
     appendChatBubble("assistant", `⚠️ Sorry, there was an error submitting your details. Please try again later.`);
