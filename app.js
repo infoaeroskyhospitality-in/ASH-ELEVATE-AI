@@ -2382,17 +2382,48 @@ function initFormSubmissions() {
         logActivity("REGISTER_CLIENT", "clients", finalClientId, { name: clientName, phone: clientPhone });
       }
       
-      await supabaseClient.from('events').insert({
-        id: eventId,
-        name: eventName,
-        date: eventDate,
-        venue: eventVenue,
-        client_id: finalClientId,
-        status: "planning",
-        budget: eventBudget,
-        latitude: eventLat,
-        longitude: eventLng
-      });
+      let eventError;
+      try {
+        const res = await supabaseClient.from('events').insert({
+          id: eventId,
+          name: eventName,
+          date: eventDate,
+          venue: eventVenue,
+          client_id: finalClientId,
+          status: "planning",
+          budget: eventBudget,
+          latitude: eventLat,
+          longitude: eventLng
+        });
+        eventError = res.error;
+      } catch (err) {
+        console.warn("Manual event insert with coordinates failed, retrying without:", err);
+        const res = await supabaseClient.from('events').insert({
+          id: eventId,
+          name: eventName,
+          date: eventDate,
+          venue: eventVenue,
+          client_id: finalClientId,
+          status: "planning",
+          budget: eventBudget
+        });
+        eventError = res.error;
+      }
+
+      if (eventError && eventError.message && (eventError.message.includes('latitude') || eventError.message.includes('column'))) {
+        console.warn("Supabase returned schema error for coordinates in manual insert, retrying without...");
+        const res = await supabaseClient.from('events').insert({
+          id: eventId,
+          name: eventName,
+          date: eventDate,
+          venue: eventVenue,
+          client_id: finalClientId,
+          status: "planning",
+          budget: eventBudget
+        });
+        eventError = res.error;
+      }
+      if (eventError) throw eventError;
       
       logActivity("CREATE_EVENT", "events", eventId, {
         eventName,
@@ -2825,17 +2856,47 @@ function renderLeadsTab() {
             }
 
             const eventName = `${inq.name}'s ${inq.eventType || 'Event'}`;
-            const { error: eventError } = await supabaseClient.from('events').insert({
-              id: eventId,
-              name: eventName,
-              date: eventDate,
-              venue: inq.venue || 'TBD',
-              client_id: finalClientId,
-              status: "confirmed",
-              budget: inq.budget || 0,
-              latitude: latitude,
-              longitude: longitude
-            });
+            let eventError;
+            try {
+              const res = await supabaseClient.from('events').insert({
+                id: eventId,
+                name: eventName,
+                date: eventDate,
+                venue: inq.venue || 'TBD',
+                client_id: finalClientId,
+                status: "confirmed",
+                budget: inq.budget || 0,
+                latitude: latitude,
+                longitude: longitude
+              });
+              eventError = res.error;
+            } catch (err) {
+              console.warn("Inserting with coordinates failed, retrying without coords:", err);
+              const res = await supabaseClient.from('events').insert({
+                id: eventId,
+                name: eventName,
+                date: eventDate,
+                venue: inq.venue || 'TBD',
+                client_id: finalClientId,
+                status: "confirmed",
+                budget: inq.budget || 0
+              });
+              eventError = res.error;
+            }
+
+            if (eventError && eventError.message && (eventError.message.includes('latitude') || eventError.message.includes('column'))) {
+              console.warn("Supabase returned schema error for coordinates, retrying without coords...");
+              const res = await supabaseClient.from('events').insert({
+                id: eventId,
+                name: eventName,
+                date: eventDate,
+                venue: inq.venue || 'TBD',
+                client_id: finalClientId,
+                status: "confirmed",
+                budget: inq.budget || 0
+              });
+              eventError = res.error;
+            }
             if (eventError) throw eventError;
 
             logActivity("CREATE_EVENT", "events", eventId, {
