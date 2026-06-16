@@ -1861,18 +1861,19 @@ body {
 
 .chatbot-badge {
   position: absolute;
-  left: -95px;
+  right: 75px;
   background: var(--brand-gold);
   color: #000;
   font-weight: 700;
   font-size: 11px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 20px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   text-transform: uppercase;
   pointer-events: none;
   border: 1px solid #fff;
   animation: floatBadge 2s ease-in-out infinite;
+  white-space: nowrap;
 }
 
 @keyframes floatBadge {
