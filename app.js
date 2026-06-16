@@ -2769,7 +2769,6 @@ function renderLeadsTab() {
         <select class="form-control inline lead-status-select ${statusBadgeClass}" data-id="${inq.id}" style="width: auto; padding: 2px 8px; font-weight: bold; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;">
           <option value="pending" ${cleanStatus === 'pending' ? 'selected' : ''}>Pending</option>
           <option value="approved" ${cleanStatus === 'approved' ? 'selected' : ''}>Approved</option>
-          <option value="booked" ${cleanStatus === 'booked' ? 'selected' : ''}>Booked</option>
           <option value="follow_up" ${cleanStatus === 'follow_up' ? 'selected' : ''}>Follow up</option>
           <option value="rejected" ${cleanStatus === 'rejected' ? 'selected' : ''}>Rejected</option>
         </select>
@@ -2786,7 +2785,7 @@ function renderLeadsTab() {
         logActivity("UPDATE_LEAD_STATUS", "inquiries", inq.id, { status: newStatus, name: inq.name });
         
         const eventId = 'e-' + inq.id;
-        if (newStatus === "approved" || newStatus === "booked") {
+        if (newStatus === "approved") {
           const existingEvent = db.events.find(evt => evt.id === eventId);
           if (!existingEvent) {
             // Prompt user for coordinates
@@ -2848,7 +2847,7 @@ function renderLeadsTab() {
             showToast("Event Created", `Event created for ${inq.name}`, "success");
           }
         } else {
-          // If status changes away from approved/booked, delete any associated event & assignments
+          // If status changes away from approved, delete any associated event & assignments
           const existingEvent = db.events.find(evt => evt.id === eventId);
           if (existingEvent) {
             await Promise.all([
