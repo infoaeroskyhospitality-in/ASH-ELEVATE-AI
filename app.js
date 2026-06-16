@@ -662,7 +662,6 @@ function initLoginHandlers() {
       return;
     }
 
-    // Trigger Firebase Phone OTP for all roles (Admin, Clients, Vendors, and Staff)
     activeTempUser = account;
     const phoneNumber = account.phone;
 
@@ -671,24 +670,39 @@ function initLoginHandlers() {
       return;
     }
 
-    // If the user is a service boy, bypass Firebase OTP and use password
-    if (account.role === "service_boy") {
+    // Bypass Firebase OTP for Admin, Vendors, and Service Boys
+    if (account.role === "service_boy" || account.role === "vendor" || account.role === "admin") {
       document.getElementById("login-credentials-section").style.display = "none";
       document.getElementById("login-otp-section").style.display = "block";
       
       const label = document.querySelector("#login-otp-section label");
-      if (label) label.textContent = "Enter 6-Digit Password";
-      
       const subtext = document.getElementById("otp-phone-subtext");
-      if (subtext) subtext.textContent = "Please enter your 6-digit login password (the first 6 digits of your phone number).";
-      
       const verifyBtn = document.getElementById("btn-verify-otp");
-      if (verifyBtn) verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify Password & Log In`;
+      const otpInput = document.getElementById("login-otp");
       
+      if (account.role === "admin") {
+        if (label) label.textContent = "Enter Admin Password";
+        if (subtext) subtext.textContent = "Please enter your administrator password.";
+        if (otpInput) {
+          otpInput.removeAttribute("maxlength");
+          otpInput.placeholder = "Enter password";
+          otpInput.type = "password";
+        }
+      } else {
+        if (label) label.textContent = "Enter 6-Digit Password";
+        if (subtext) subtext.textContent = "Please enter your 6-digit login password (the first 6 digits of your phone number).";
+        if (otpInput) {
+          otpInput.setAttribute("maxlength", "6");
+          otpInput.placeholder = "e.g. 123456";
+          otpInput.type = "text";
+        }
+      }
+      
+      if (verifyBtn) verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify Password & Log In`;
       return;
     }
 
-    // Normal Firebase SMS OTP verification flow
+    // Normal Firebase SMS OTP verification flow (Clients only)
     const label = document.querySelector("#login-otp-section label");
     if (label) label.textContent = "Enter 6-Digit OTP Code";
     
@@ -697,6 +711,13 @@ function initLoginHandlers() {
     
     const verifyBtn = document.getElementById("btn-verify-otp");
     if (verifyBtn) verifyBtn.innerHTML = `<i class="ti ti-circle-check"></i> Verify OTP & Log In`;
+
+    const otpInput = document.getElementById("login-otp");
+    if (otpInput) {
+      otpInput.setAttribute("maxlength", "6");
+      otpInput.placeholder = "e.g. 123456";
+      otpInput.type = "text";
+    }
 
     const appVerifier = window.recaptchaVerifier;
     
@@ -729,21 +750,43 @@ function initLoginHandlers() {
   // Verify OTP / Password button
   document.getElementById("btn-verify-otp").addEventListener("click", () => {
     const code = document.getElementById("login-otp").value.trim();
-    if (code.length !== 6) {
-      alert(activeTempUser && activeTempUser.role === "service_boy" ? "Please enter a valid 6-digit password!" : "Please enter a valid 6-digit OTP code!");
-      return;
+    
+    if (activeTempUser && (activeTempUser.role === "service_boy" || activeTempUser.role === "vendor" || activeTempUser.role === "admin")) {
+      if (!code) {
+        alert("Please enter your password!");
+        return;
+      }
+    } else {
+      if (code.length !== 6) {
+        alert("Please enter a valid 6-digit OTP code!");
+        return;
+      }
     }
 
     const verifyBtn = document.getElementById("btn-verify-otp");
     verifyBtn.disabled = true;
     verifyBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Verifying...`;
 
-    // Service boy login check (direct client-side matching of digits)
-    if (activeTempUser && activeTempUser.role === "service_boy") {
-      const expectedPassword = getServiceBoyPassword(activeTempUser.phone);
+    // Direct password check client-side for Admin, Vendors, and Service Boys
+    if (activeTempUser && (activeTempUser.role === "service_boy" || activeTempUser.role === "vendor" || activeTempUser.role === "admin")) {
+      let expectedPassword = "";
+      if (activeTempUser.role === "admin") {
+        expectedPassword = activeTempUser.password || "admin123";
+      } else {
+        expectedPassword = getServiceBoyPassword(activeTempUser.phone);
+      }
+
       if (code === expectedPassword) {
         loggedInUser = activeTempUser;
         sessionStorage.setItem("aerosky_logged_in_user", JSON.stringify(loggedInUser));
+        
+        // Reset password fields attributes
+        const otpInput = document.getElementById("login-otp");
+        if (otpInput) {
+          otpInput.setAttribute("maxlength", "6");
+          otpInput.placeholder = "e.g. 123456";
+          otpInput.type = "text";
+        }
         
         document.getElementById("login-credentials-section").style.display = "block";
         document.getElementById("login-otp-section").style.display = "none";
@@ -762,7 +805,7 @@ function initLoginHandlers() {
       return;
     }
 
-    // Normal Firebase OTP Confirm
+    // Normal Firebase OTP Confirm for clients
     window.confirmationResult.confirm(code)
       .then((result) => {
         // Authenticated!
@@ -793,6 +836,15 @@ function initLoginHandlers() {
     document.getElementById("login-credentials-section").style.display = "block";
     document.getElementById("login-otp-section").style.display = "none";
     document.getElementById("login-otp").value = "";
+    
+    // Restore default attributes
+    const otpInput = document.getElementById("login-otp");
+    if (otpInput) {
+      otpInput.setAttribute("maxlength", "6");
+      otpInput.placeholder = "e.g. 123456";
+      otpInput.type = "text";
+    }
+    
     activeTempUser = null;
   });
 
