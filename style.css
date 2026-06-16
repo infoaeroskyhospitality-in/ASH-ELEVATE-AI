@@ -1834,7 +1834,7 @@ body {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 1000;
+  z-index: 10001;
   font-family: var(--font-family);
 }
 
