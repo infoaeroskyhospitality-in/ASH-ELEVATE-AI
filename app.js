@@ -2807,11 +2807,23 @@ function renderLeadsTab() {
               logActivity("REGISTER_CLIENT", "clients", finalClientId, { name: inq.name, phone: inq.phone });
             }
 
+            // Safe date parsing to match Supabase DATE type (YYYY-MM-DD)
+            let eventDate = inq.date;
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!eventDate || !dateRegex.test(eventDate)) {
+              const parsed = Date.parse(eventDate);
+              if (!isNaN(parsed)) {
+                eventDate = new Date(parsed).toISOString().split('T')[0];
+              } else {
+                eventDate = new Date().toISOString().split('T')[0];
+              }
+            }
+
             const eventName = `${inq.name}'s ${inq.eventType || 'Event'}`;
             const { error: eventError } = await supabaseClient.from('events').insert({
               id: eventId,
               name: eventName,
-              date: inq.date || new Date().toISOString().split('T')[0],
+              date: eventDate,
               venue: inq.venue || 'TBD',
               client_id: finalClientId,
               status: "confirmed",
