@@ -2074,4 +2074,7 @@ body {
     height: 420px;
     bottom: 70px;
   }
+  .chatbot-badge {
+    display: none !important;
+  }
 }
