@@ -1162,7 +1162,11 @@ function renderEventsTab() {
   const statusFilter = document.getElementById("filter-event-status").value;
   
   let filteredEvents = db.events.filter(e => {
-    const matchSearch = e.name.toLowerCase().includes(searchVal) || e.venue.toLowerCase().includes(searchVal);
+    const client = db.clients.find(c => c.id === e.clientId) || { name: "", phone: "" };
+    const matchSearch = e.name.toLowerCase().includes(searchVal) || 
+                        e.venue.toLowerCase().includes(searchVal) ||
+                        client.name.toLowerCase().includes(searchVal) ||
+                        client.phone.toLowerCase().includes(searchVal);
     const matchStatus = statusFilter === "all" || e.status === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -2112,6 +2116,12 @@ function initFormSubmissions() {
   document.getElementById("form-add-event").addEventListener("submit", async (e) => {
     e.preventDefault();
     
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    if (submitBtn) {
+      if (submitBtn.disabled) return;
+      submitBtn.disabled = true;
+    }
+    
     const clientName = document.getElementById("event-client-name").value.trim();
     const clientPhone = document.getElementById("event-client-phone").value.trim();
     const clientEmail = document.getElementById("event-client-email").value.trim();
@@ -2166,6 +2176,10 @@ function initFormSubmissions() {
     } catch (err) {
       console.error("Failed to add event in Supabase:", err);
       alert("Failed to save event details.");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
     }
   });
   
