@@ -1205,6 +1205,7 @@ function renderEventsTab() {
       <td class="text-right" style="white-space: nowrap;">
         <button class="btn btn-secondary btn-sm btn-manage-ops" data-id="${e.id}"><i class="ti ti-settings"></i> Ops</button>
         <button class="btn btn-secondary btn-sm btn-generate-invoice" data-id="${e.id}"><i class="ti ti-file-text"></i> Invoice</button>
+        <button class="btn btn-danger btn-sm btn-delete-event" data-id="${e.id}"><i class="ti ti-trash"></i> Delete</button>
       </td>
     `;
     
@@ -1229,6 +1230,32 @@ function renderEventsTab() {
     // Generate Invoice click
     tr.querySelector(".btn-generate-invoice").addEventListener("click", () => {
       generateInvoicePDF(e.id);
+    });
+
+    // Delete Event click
+    tr.querySelector(".btn-delete-event").addEventListener("click", async () => {
+      const confirmDelete = confirm(`Are you sure you want to permanently delete the event "${e.name}"? This will also remove all assignments, payments, and expenses linked to it.`);
+      if (!confirmDelete) return;
+      
+      try {
+        await Promise.all([
+          supabaseClient.from('assignments').delete().eq('event_id', e.id),
+          supabaseClient.from('vendor_orders').delete().eq('event_id', e.id),
+          supabaseClient.from('payments').delete().eq('event_id', e.id),
+          supabaseClient.from('issues').delete().eq('event_id', e.id)
+        ]);
+        
+        const { error } = await supabaseClient.from('events').delete().eq('id', e.id);
+        if (error) throw error;
+        
+        logActivity("DELETE_EVENT", "events", e.id, { eventName: e.name });
+        showToast("Success", `Event "${e.name}" deleted successfully.`, "success");
+        await loadDatabase();
+        renderAllViews();
+      } catch (err) {
+        console.error("Failed to delete event:", err);
+        showToast("Error", "Failed to delete event.", "danger");
+      }
     });
     
     tbody.appendChild(tr);
