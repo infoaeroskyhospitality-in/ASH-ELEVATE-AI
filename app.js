@@ -1207,7 +1207,7 @@ function renderEventsTab() {
       </td>
       <td class="text-right" style="white-space: nowrap;">
         <button class="btn btn-secondary btn-sm btn-manage-ops" data-id="${e.id}"><i class="ti ti-settings"></i> Ops</button>
-        <button class="btn ${(e.menuText || e.menuFileData) ? 'btn-primary' : 'btn-secondary'} btn-sm btn-event-menu" data-id="${e.id}" title="${(e.menuText || e.menuFileData) ? 'Menu attached ✓' : 'Add Menu'}"><i class="ti ti-tools-kitchen-2"></i> Menu${(e.menuText || e.menuFileData) ? ' ✓' : ''}</button>
+        <button class="btn ${(e.menuText || e.menuFileData) ? 'btn-primary' : 'btn-secondary'} btn-sm btn-event-menu" data-id="${e.id}" title="${(e.menuText || e.menuFileData) ? 'Menu attached ✓' : 'Add/Edit Menu'}"><i class="ti ti-tools-kitchen-2"></i> Menu${(e.menuText || e.menuFileData) ? ' ✓' : ''}</button>
         <button class="btn btn-secondary btn-sm btn-generate-invoice" data-id="${e.id}"><i class="ti ti-file-text"></i> Invoice</button>
         <button class="btn btn-danger btn-sm btn-delete-event" data-id="${e.id}"><i class="ti ti-trash"></i> Delete</button>
       </td>
@@ -2771,6 +2771,7 @@ function renderLeadsTab() {
           <option value="approved" ${cleanStatus === 'approved' ? 'selected' : ''}>Approved</option>
           <option value="booked" ${cleanStatus === 'booked' ? 'selected' : ''}>Booked</option>
           <option value="follow_up" ${cleanStatus === 'follow_up' ? 'selected' : ''}>Follow up</option>
+          <option value="rejected" ${cleanStatus === 'rejected' ? 'selected' : ''}>Rejected</option>
         </select>
       </td>
     `;
@@ -2784,8 +2785,8 @@ function renderLeadsTab() {
         await supabaseClient.from('inquiries').update({ status: newStatus }).eq('id', inq.id);
         logActivity("UPDATE_LEAD_STATUS", "inquiries", inq.id, { status: newStatus, name: inq.name });
         
+        const eventId = 'e-' + inq.id;
         if (newStatus === "approved" || newStatus === "booked") {
-          const eventId = 'e-' + inq.id;
           const existingEvent = db.events.find(evt => evt.id === eventId);
           if (!existingEvent) {
             // Prevent duplication: check if client with this phone number already exists
@@ -2796,17 +2797,18 @@ function renderLeadsTab() {
               finalClientId = existingClient.id;
             } else {
               finalClientId = 'c-' + Date.now();
-              await supabaseClient.from('clients').insert({
+              const { error: clientError } = await supabaseClient.from('clients').insert({
                 id: finalClientId,
                 name: inq.name,
                 phone: inq.phone,
                 email: inq.email || null
               });
+              if (clientError) throw clientError;
               logActivity("REGISTER_CLIENT", "clients", finalClientId, { name: inq.name, phone: inq.phone });
             }
 
             const eventName = `${inq.name}'s ${inq.eventType || 'Event'}`;
-            await supabaseClient.from('events').insert({
+            const { error: eventError } = await supabaseClient.from('events').insert({
               id: eventId,
               name: eventName,
               date: inq.date || new Date().toISOString().split('T')[0],
@@ -2817,6 +2819,8 @@ function renderLeadsTab() {
               latitude: null,
               longitude: null
             });
+            if (eventError) throw eventError;
+
             logActivity("CREATE_EVENT", "events", eventId, {
               eventName,
               clientName: inq.name,
@@ -2824,6 +2828,22 @@ function renderLeadsTab() {
               budget: inq.budget || 0
             });
             showToast("Event Created", `Event created for ${inq.name}`, "success");
+          }
+        } else {
+          // If status changes away from approved/booked, delete any associated event & assignments
+          const existingEvent = db.events.find(evt => evt.id === eventId);
+          if (existingEvent) {
+            await Promise.all([
+              supabaseClient.from('assignments').delete().eq('event_id', eventId),
+              supabaseClient.from('vendor_orders').delete().eq('event_id', eventId),
+              supabaseClient.from('payments').delete().eq('event_id', eventId),
+              supabaseClient.from('issues').delete().eq('event_id', eventId)
+            ]);
+            const { error: deleteError } = await supabaseClient.from('events').delete().eq('id', eventId);
+            if (deleteError) throw deleteError;
+
+            logActivity("DELETE_EVENT", "events", eventId, { eventName: existingEvent.name });
+            showToast("Event Removed", `Event for ${inq.name} has been removed.`, "info");
           }
         }
         
