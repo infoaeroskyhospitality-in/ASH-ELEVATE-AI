@@ -209,8 +209,8 @@ function generateInvoicePDF(eventId) {
   // Invoice Metadata
   doc.setTextColor(80, 80, 80);
   doc.setFontSize(10);
-  doc.text(`Invoice No: INV-${event.id.toUpperCase().substr(2,6)}`, 140, 45);
-  doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 140, 50);
+  doc.text(`Invoice No: INV-${event.id.toUpperCase().substr(2,6)}`, 195, 45, { align: "right" });
+  doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 195, 50, { align: "right" });
   
   // Client Details Section
   doc.setTextColor(0, 0, 0);
@@ -241,18 +241,18 @@ function generateInvoicePDF(eventId) {
   // Table Headers
   doc.setFont("Helvetica", "bold");
   doc.text("Billing Component", 15, 115);
-  doc.text("Amount", 160, 115);
+  doc.text("Amount", 195, 115, { align: "right" });
   doc.line(15, 118, 195, 118);
   
   // Row 1: Contract Value
   doc.setFont("Helvetica", "normal");
   doc.text("Event Contract Base Value", 15, 125);
-  doc.text(`INR ${event.budget.toLocaleString('en-IN')}.00`, 160, 125);
+  doc.text(`INR ${event.budget.toLocaleString('en-IN')}.00`, 195, 125, { align: "right" });
   doc.line(15, 128, 195, 128);
   
   // Row 2: Payments Made (Credits)
   doc.text("Payments Logged (Credits)", 15, 135);
-  doc.text(`INR ${totalPaid.toLocaleString('en-IN')}.00`, 160, 135);
+  doc.text(`INR ${totalPaid.toLocaleString('en-IN')}.00`, 195, 135, { align: "right" });
   doc.line(15, 138, 195, 138);
   
   // Final Balance Box
@@ -260,7 +260,7 @@ function generateInvoicePDF(eventId) {
   doc.rect(15, 145, 180, 20, 'F');
   doc.setFont("Helvetica", "bold");
   doc.text("OUTSTANDING BALANCE DUE:", 20, 157);
-  doc.text(`INR ${outstanding.toLocaleString('en-IN')}.00`, 150, 157);
+  doc.text(`INR ${outstanding.toLocaleString('en-IN')}.00`, 190, 157, { align: "right" });
   
   // Payment Breakdown
   if (payments.length > 0) {
