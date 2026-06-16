@@ -2864,12 +2864,18 @@ function renderLeadsTab() {
 let chatbotState = {
   step: 0,
   data: {
+    services: [], // catering, decor, entertainment
+    eventName: "",
+    eventType: "",
+    guests: "",
+    budgetTier: "", // budget, premium, luxury
+    menuPref: "", // veg, non-veg, mixed
+    tentativeMenu: "", // text or file name
     name: "",
     phone: "",
-    eventType: "",
-    venue: "",
     date: "",
-    budget: ""
+    venue: "",
+    budget: 0
   }
 };
 
@@ -2889,8 +2895,11 @@ function initChatbot() {
       toggleBtn.querySelector(".chatbot-open-icon").style.display = "none";
       toggleBtn.querySelector(".chatbot-close-icon").style.display = "block";
       
-      if (chatbotState.step === 6) {
+      // If we finished, reset
+      if (chatbotState.step === 11) {
         resetChatbot();
+      } else if (chatbotState.step === 0 && messagesContainer.children.length <= 1) {
+        renderServiceOptions();
       }
       textInput.focus();
     } else {
@@ -2917,14 +2926,17 @@ function handleChatbotInput() {
   if (!textInput) return;
 
   const value = textInput.value.trim();
-  if (chatbotState.step !== 2 && chatbotState.step !== 4 && chatbotState.step !== 5 && !value) {
+  
+  // Define steps that allow empty text or use click options instead
+  const noTextSteps = [0, 2, 6, 7, 8];
+  if (!value && !noTextSteps.includes(chatbotState.step)) {
     return;
   }
-  if (chatbotState.step === 2 && !value) return;
-  if (chatbotState.step === 4 && !value) return;
-  if (chatbotState.step === 5 && !value) return;
 
-  appendChatBubble("client", value);
+  // Append user bubble unless we handle it programmatically via button click
+  if (value) {
+    appendChatBubble("client", value);
+  }
   processChatbotStep(value);
   textInput.value = "";
 }
@@ -2938,59 +2950,116 @@ function appendChatBubble(sender, text) {
   bubble.innerHTML = text;
   messagesContainer.appendChild(bubble);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  return bubble;
 }
 
 async function processChatbotStep(value) {
   const textInput = document.getElementById("chatbot-text-input");
   if (!textInput) return;
 
+  removeQuickOptionsUI();
+
   switch (chatbotState.step) {
-    case 0:
-      chatbotState.data.name = value;
+    case 0: // Service Selection
+      if (value) {
+        chatbotState.data.services = [value];
+      }
+      appendChatBubble("assistant", `Got it! Let's collect event details. First, what is the **Name of the Event**? (e.g. Rahul's Wedding, Tech Conf)`);
       chatbotState.step = 1;
-      appendChatBubble("assistant", `Nice to meet you, <strong>${value}</strong>! Can I have your <strong>Phone Number</strong> so we can get in touch?`);
-      textInput.type = "tel";
-      textInput.placeholder = "Type phone number here...";
+      textInput.type = "text";
+      textInput.placeholder = "Type event name here...";
       break;
 
-    case 1:
-      chatbotState.data.phone = value;
+    case 1: // Event Name
+      chatbotState.data.eventName = value;
+      appendChatBubble("assistant", `Great! Please select the **Event Type**:`);
+      renderEventTypeOptions();
       chatbotState.step = 2;
-      appendChatBubble("assistant", `Got it! What type of event are we planning? You can click one of the options below or type it custom:`);
-      renderCategoryOptions();
-      textInput.type = "text";
-      textInput.placeholder = "Type category or select option...";
+      textInput.placeholder = "Select or type event type...";
       break;
 
-    case 2:
+    case 2: // Event Type
       chatbotState.data.eventType = value;
+      appendChatBubble("assistant", `Understood. Approximately **how many guests** will be attending?`);
       chatbotState.step = 3;
-      removeCategoryOptionsUI();
-      appendChatBubble("assistant", `Excellent! A <strong>${value}</strong> sounds wonderful. Where is the **Venue / Location** you are planning to host this?`);
-      textInput.type = "text";
-      textInput.placeholder = "Type venue address/hotel name...";
+      textInput.type = "number";
+      textInput.placeholder = "Enter number of guests...";
       break;
 
-    case 3:
-      chatbotState.data.venue = value;
+    case 3: // Number of Guests
+      chatbotState.data.guests = value;
+      appendChatBubble("assistant", `What is the scheduled **Date** for this event?`);
       chatbotState.step = 4;
-      appendChatBubble("assistant", `Great location choice. What is the scheduled **Date** for this event?`);
       textInput.type = "date";
       textInput.placeholder = "";
       break;
 
-    case 4:
+    case 4: // Date
       chatbotState.data.date = value;
+      appendChatBubble("assistant", `Where is the **Venue / Location** you are planning to host this?`);
       chatbotState.step = 5;
-      appendChatBubble("assistant", `Perfect. And lastly, what is your estimated **Budget** in ₹ for the event?`);
-      textInput.type = "number";
-      textInput.placeholder = "Type estimated budget...";
+      textInput.type = "text";
+      textInput.placeholder = "Type venue name or location...";
       break;
 
-    case 5:
-      chatbotState.data.budget = parseFloat(value) || 0;
+    case 5: // Venue
+      chatbotState.data.venue = value;
+      appendChatBubble("assistant", `Please select your **Budget Category** for this event:`);
+      renderBudgetTierOptions();
       chatbotState.step = 6;
-      appendChatBubble("assistant", `Almost done! We are registering your inquiry. Please wait a moment...`);
+      textInput.placeholder = "Select budget tier...";
+      break;
+
+    case 6: // Budget Selection
+      chatbotState.data.budgetTier = value;
+      // Set a default numeric budget based on tier for database compatibility
+      if (value.toLowerCase() === 'luxury') chatbotState.data.budget = 1000000;
+      else if (value.toLowerCase() === 'premium') chatbotState.data.budget = 350000;
+      else chatbotState.data.budget = 1000000;
+
+      // Check if Catering or All Services was selected
+      const hasCatering = chatbotState.data.services.some(s => s.toLowerCase().includes('catering') || s.toLowerCase().includes('all'));
+      if (hasCatering) {
+        appendChatBubble("assistant", `Since you selected **Catering**, what is your **Menu Preference**?`);
+        renderMenuPreferenceOptions();
+        chatbotState.step = 7;
+      } else {
+        // Skip Catering gathering, go straight to Name
+        appendChatBubble("assistant", `Almost done! To register your inquiry, may I know your **Full Name**?`);
+        chatbotState.step = 9;
+        textInput.type = "text";
+        textInput.placeholder = "Type full name here...";
+      }
+      break;
+
+    case 7: // Menu Preference
+      chatbotState.data.menuPref = value;
+      appendChatBubble("assistant", `Please share your **Tentative Menu**. You can type it below or upload a PDF/Image of your menu:`);
+      renderMenuUploadArea();
+      chatbotState.step = 8;
+      textInput.type = "text";
+      textInput.placeholder = "Type your menu items here...";
+      break;
+
+    case 8: // Tentative Menu text input (file handled separately)
+      if (value) {
+        chatbotState.data.tentativeMenu = value;
+        simulateMenuAIAnalysis(value);
+      }
+      break;
+
+    case 9: // Full Name
+      chatbotState.data.name = value;
+      appendChatBubble("assistant", `Nice to meet you, <strong>${value}</strong>! Can I have your **Phone Number** so we can contact you?`);
+      chatbotState.step = 10;
+      textInput.type = "tel";
+      textInput.placeholder = "Type phone number here...";
+      break;
+
+    case 10: // Phone Number
+      chatbotState.data.phone = value;
+      chatbotState.step = 11;
+      appendChatBubble("assistant", `Thank you! Registering your customized inquiry in real-time...`);
       await submitInquiry();
       break;
 
@@ -2999,9 +3068,128 @@ async function processChatbotStep(value) {
   }
 }
 
-function renderCategoryOptions() {
+// Option Renders
+
+function renderServiceOptions() {
+  const container = createQuickOptionsContainer();
+  const options = ["Catering", "Decor", "Entertainment", "All Services"];
+  options.forEach(opt => {
+    createQuickOptionButton(container, opt, () => {
+      appendChatBubble("client", opt);
+      chatbotState.data.services = [opt];
+      processChatbotStep(opt);
+    });
+  });
+}
+
+function renderEventTypeOptions() {
+  const container = createQuickOptionsContainer();
+  const options = ["Wedding", "Birthday", "Corporate Event", "Anniversary", "Housewarming", "Other"];
+  options.forEach(opt => {
+    createQuickOptionButton(container, opt, () => {
+      appendChatBubble("client", opt);
+      processChatbotStep(opt);
+    });
+  });
+}
+
+function renderBudgetTierOptions() {
+  const container = createQuickOptionsContainer();
+  const options = ["Budget", "Premium", "Luxury"];
+  options.forEach(opt => {
+    createQuickOptionButton(container, opt, () => {
+      appendChatBubble("client", opt);
+      processChatbotStep(opt);
+    });
+  });
+}
+
+function renderMenuPreferenceOptions() {
+  const container = createQuickOptionsContainer();
+  const options = ["Veg", "Non-Veg", "Mixed"];
+  options.forEach(opt => {
+    createQuickOptionButton(container, opt, () => {
+      appendChatBubble("client", opt);
+      processChatbotStep(opt);
+    });
+  });
+}
+
+function renderMenuUploadArea() {
   const messagesContainer = document.getElementById("chatbot-messages");
   if (!messagesContainer) return;
+
+  const container = document.createElement("div");
+  container.id = "chatbot-quick-options";
+  container.className = "chatbot-upload-box";
+  container.style.marginTop = "8px";
+  container.style.padding = "12px";
+  container.style.border = "2px dashed var(--brand-gold)";
+  container.style.borderRadius = "8px";
+  container.style.textAlign = "center";
+  container.style.background = "rgba(197, 160, 89, 0.05)";
+
+  container.innerHTML = `
+    <label for="chatbot-menu-file" style="cursor:pointer; display:block;">
+      <i class="ti ti-cloud-upload" style="font-size: 28px; color: var(--brand-gold);"></i>
+      <span style="display:block; font-size:12px; margin-top:4px; font-weight:bold; color:var(--text-normal);">Upload Menu (PDF / Image)</span>
+    </label>
+    <input type="file" id="chatbot-menu-file" accept=".pdf,image/*" style="display:none;">
+  `;
+
+  messagesContainer.appendChild(container);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  const fileInput = container.querySelector("#chatbot-menu-file");
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      appendChatBubble("client", `📎 Uploaded: <strong>${file.name}</strong>`);
+      chatbotState.data.tentativeMenu = `File: ${file.name}`;
+      simulateMenuAIAnalysis(file.name);
+    }
+  });
+}
+
+function simulateMenuAIAnalysis(inputName) {
+  removeQuickOptionsUI();
+  
+  const progressBubble = appendChatBubble("assistant", `🔍 <strong>Aerosky AI analyzing your menu choice...</strong><br>
+    • Extracting items from input...<br>
+    • Validating combinations...`);
+
+  setTimeout(() => {
+    progressBubble.innerHTML = `⚙️ <strong>Refining menu items and suggesting improvements...</strong>`;
+    
+    setTimeout(() => {
+      progressBubble.innerHTML = `✨ <strong>Custom AI Menu Strategy Created!</strong><br><br>
+        <strong>Suggested Improvements:</strong><br>
+        1. Add a signature mocktail counter to welcome guests.<br>
+        2. Pair seasonal starters matching the budget tier.<br>
+        3. Optimize dessert distribution for ${chatbotState.data.guests || '100'} guests.<br><br>
+        <strong>Generated Tentative Menu Plan:</strong><br>
+        • 3 Starters (including Specialty Skewers)<br>
+        • 2 Main Course Mains (matching preference: ${chatbotState.data.menuPref || 'Mixed'})<br>
+        • Live Bread/Roti Counter & Rice pairing<br>
+        • Premium Ice Cream & Warm Dessert combination.`;
+
+      const textInput = document.getElementById("chatbot-text-input");
+      if (textInput) {
+        appendChatBubble("assistant", `Now to save your options, please enter your **Full Name**:`);
+        chatbotState.step = 9;
+        textInput.type = "text";
+        textInput.placeholder = "Type full name here...";
+        textInput.focus();
+      }
+    }, 1500);
+  }, 1200);
+}
+
+// Helpers
+
+function createQuickOptionsContainer() {
+  const messagesContainer = document.getElementById("chatbot-messages");
+  if (!messagesContainer) return null;
 
   const container = document.createElement("div");
   container.id = "chatbot-quick-options";
@@ -3010,33 +3198,27 @@ function renderCategoryOptions() {
   container.style.gap = "6px";
   container.style.marginTop = "6px";
 
-  const categories = ["Wedding", "Corporate Gala", "Birthday Party", "Custom Event"];
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "btn btn-outline btn-sm";
-    btn.style.padding = "4px 10px";
-    btn.style.fontSize = "12px";
-    btn.style.borderColor = "var(--brand-gold)";
-    btn.style.color = "var(--brand-gold)";
-    btn.style.borderRadius = "20px";
-    btn.style.cursor = "pointer";
-    btn.textContent = cat;
-    btn.addEventListener("click", () => {
-      const textInput = document.getElementById("chatbot-text-input");
-      if (textInput) {
-        textInput.value = cat;
-        handleChatbotInput();
-      }
-    });
-    container.appendChild(btn);
-  });
-
   messagesContainer.appendChild(container);
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  return container;
 }
 
-function removeCategoryOptionsUI() {
+function createQuickOptionButton(container, text, callback) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn btn-outline btn-sm";
+  btn.style.padding = "4px 10px";
+  btn.style.fontSize = "12px";
+  btn.style.borderColor = "var(--brand-gold)";
+  btn.style.color = "var(--brand-gold)";
+  btn.style.borderRadius = "20px";
+  btn.style.cursor = "pointer";
+  btn.textContent = text;
+  btn.addEventListener("click", callback);
+  container.appendChild(btn);
+}
+
+function removeQuickOptionsUI() {
   const container = document.getElementById("chatbot-quick-options");
   if (container) {
     container.remove();
@@ -3049,14 +3231,18 @@ async function submitInquiry() {
   
   const inquiryId = 'inq-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
   
+  // Format services and catering menu details into event type & venue description
+  const formattedType = `${chatbotState.data.eventType} (${chatbotState.data.services.join(', ')})`;
+  const finalVenue = `${chatbotState.data.venue} [Guests: ${chatbotState.data.guests}, Budget: ${chatbotState.data.budgetTier}]`;
+
   const payload = {
     id: inquiryId,
     name: chatbotState.data.name,
     phone: chatbotState.data.phone,
     email: null,
-    event_type: chatbotState.data.eventType,
+    event_type: formattedType,
     date: chatbotState.data.date,
-    venue: chatbotState.data.venue,
+    venue: finalVenue,
     budget: chatbotState.data.budget,
     status: 'pending',
     created_at: new Date().toISOString()
@@ -3083,12 +3269,18 @@ function resetChatbot() {
   chatbotState = {
     step: 0,
     data: {
+      services: [],
+      eventName: "",
+      eventType: "",
+      guests: "",
+      budgetTier: "",
+      menuPref: "",
+      tentativeMenu: "",
       name: "",
       phone: "",
-      eventType: "",
-      venue: "",
       date: "",
-      budget: ""
+      venue: "",
+      budget: 0
     }
   };
 
@@ -3099,19 +3291,23 @@ function resetChatbot() {
   if (inputRow) inputRow.style.display = "flex";
   if (textInput) {
     textInput.type = "text";
-    textInput.placeholder = "Type your name here...";
+    textInput.placeholder = "Select service above...";
     textInput.value = "";
   }
   if (messagesContainer) {
     messagesContainer.innerHTML = `
       <div class="chat-bubble assistant">
-        Hi! I am the digital event assistant for <strong>Aerosky Hospitality</strong>. 
-        Are you planning an upcoming wedding, corporate gala, or family function? 
-        Let me help you check availability and estimate budgets!
-      </div>
-      <div class="chat-bubble assistant">
-        To get started, may I know your <strong>Full Name</strong>?
+        Hi! Greetings of the day. <br><br>
+        We are a one-stop solution for your social and corporate event requirements, including:
+        <ul>
+          <li>Catering</li>
+          <li>Decor</li>
+          <li>Entertainment</li>
+        </ul>
+        Please choose the service you need.
       </div>
     `;
+    renderServiceOptions();
   }
 }
+
