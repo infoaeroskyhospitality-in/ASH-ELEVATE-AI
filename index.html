@@ -540,75 +540,103 @@
         <!-- ==========================================
              D. SERVICE BOY PORTAL VIEW
              ========================================== -->
+        <!-- ==========================================
+             D. SERVICE BOY PORTAL VIEW
+             ========================================== -->
         <div class="portal-view" id="view-service-boy">
           <div class="portal-top-bar">
             <div>
-              <h1>Service Boy Portal</h1>
-              <p>Mobile-first dashboard for coordinate crew check-in and payroll verification.</p>
+              <h1 id="sb-portal-title">Crew Portal</h1>
+              <p>Verify attendance check-in, review assignment schedules, and inspect payout ledger logs.</p>
             </div>
           </div>
 
-          <!-- Smartphone Mockup Wrapper -->
-          <div class="mobile-frame-container">
-            <div class="mobile-frame">
-              <div class="mobile-screen">
-                <!-- Mobile App Header -->
-                <header class="mobile-header">
-                  <div class="mobile-wifi-row">
-                    <span>9:41</span>
-                    <div class="wifi-icons">
-                      <i class="ti ti-wifi"></i>
-                      <i class="ti ti-battery-4"></i>
-                    </div>
-                  </div>
-                  <div class="mobile-user-card">
-                    <div class="avatar-circle" id="sb-mobile-avatar">AS</div>
-                    <div>
-                      <h2 class="mobile-username" id="sb-mobile-name">Akash Sharma</h2>
-                      <span class="mobile-userid" id="sb-mobile-id">Staff ID: SB-901</span>
-                    </div>
-                  </div>
-                </header>
+          <!-- Tabs for Crew Navigation -->
+          <div class="tab-nav-wrapper" style="margin-bottom: 1.5rem; display: flex; gap: 10px;">
+            <button class="tab-item active" id="tab-sb-home" data-sb-tab="home" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ti ti-home"></i> Home
+            </button>
+            <button class="tab-item" id="tab-sb-schedule" data-sb-tab="schedule" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ti ti-calendar"></i> My Duty Schedule
+            </button>
+            <button class="tab-item" id="tab-sb-payouts" data-sb-tab="payouts" style="padding: 8px 16px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+              <i class="ti ti-wallet"></i> Payouts Ledger
+            </button>
+          </div>
 
-                <div class="mobile-content">
-                  <!-- Attendance Check-in Widget -->
-                  <div class="mobile-widget accent-widget">
-                    <span class="widget-label">Today's Check-In Status</span>
-                    <div class="checkin-row">
-                      <span class="checkin-status" id="sb-mobile-checkin-status">Not Logged</span>
-                      <button class="btn btn-sm btn-primary" id="btn-sb-checkin" style="background:#fff; color:#0a5c36; font-weight:700;">Check Attendance</button>
-                    </div>
-                  </div>
+          <!-- Panel 1: HOME (Attendance Check-In & Earnings Summary) -->
+          <div class="sb-panel active" id="sb-panel-home">
+            <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 1.5rem;">
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Daily Wage Rate</span>
+                <h3 id="sb-rate-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">₹0</h3>
+              </div>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Days Present</span>
+                <h3 id="sb-days-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">0</h3>
+              </div>
+              <div class="metric-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 6px;">
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Total Wages Earned</span>
+                <h3 id="sb-total-val" style="margin: 5px 0; font-size: 24px; color: var(--brand-gold);">₹0</h3>
+              </div>
+            </div>
 
-                  <!-- Earnings summary -->
-                  <div class="mobile-earnings-summary">
-                    <div class="earn-box">
-                      <span class="earn-label">Daily Wage</span>
-                      <span class="earn-val" id="sb-mobile-rate">₹0</span>
-                    </div>
-                    <div class="earn-box">
-                      <span class="earn-label">Days Worked</span>
-                      <span class="earn-val" id="sb-mobile-days">0</span>
-                    </div>
-                    <div class="earn-box">
-                      <span class="earn-label">Total Earned</span>
-                      <span class="earn-val" id="sb-mobile-total">₹0</span>
-                    </div>
-                  </div>
+            <!-- Attendance check-in card -->
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px; margin-bottom: 1.5rem; border-left: 4px solid var(--brand-green);">
+              <h3 style="margin-top: 0; font-size: 15px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Today's Check-In Status</h3>
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 10px;">
+                <span id="sb-checkin-status" style="font-size: 16px; font-weight: bold;">Loading status...</span>
+                <button class="btn btn-primary" id="btn-sb-checkin" style="display: none; padding: 8px 20px;">Check Attendance</button>
+              </div>
+            </div>
+          </div>
 
-                  <!-- Assignment list -->
-                  <h3 class="mobile-section-heading">My Duty Schedule</h3>
-                  <div class="mobile-duty-list" id="sb-mobile-duty-list">
-                    <!-- Dynamic duty cards list -->
-                  </div>
-                </div>
+          <!-- Panel 2: SCHEDULE -->
+          <div class="sb-panel" id="sb-panel-schedule" style="display: none;">
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px;">
+              <h2 style="margin-top: 0; font-size: 16px; margin-bottom: 1rem;">Assigned Duty List</h2>
+              <div class="data-table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Event Name</th>
+                      <th>Date</th>
+                      <th>Venue</th>
+                      <th>Role</th>
+                      <th>Duration</th>
+                      <th>Duty Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sb-table-schedule-body">
+                    <!-- Populated dynamically -->
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No duties assigned.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
 
-                <!-- Mobile Navigation Bar -->
-                <nav class="mobile-navbar">
-                  <button class="mobile-nav-btn active"><i class="ti ti-home"></i><span>Home</span></button>
-                  <button class="mobile-nav-btn"><i class="ti ti-calendar"></i><span>Schedule</span></button>
-                  <button class="mobile-nav-btn"><i class="ti ti-wallet"></i><span>Payouts</span></button>
-                </nav>
+          <!-- Panel 3: PAYOUTS -->
+          <div class="sb-panel" id="sb-panel-payouts" style="display: none;">
+            <div class="card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 6px;">
+              <h2 style="margin-top: 0; font-size: 16px; margin-bottom: 1rem;">Wage Earnings & Payout Logs</h2>
+              <div class="data-table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Event Name</th>
+                      <th>Date</th>
+                      <th>Role</th>
+                      <th>Daily Rate</th>
+                      <th>Days Worked</th>
+                      <th>Total Wage Earned</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sb-table-payouts-body">
+                    <!-- Populated dynamically -->
+                    <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No earnings logged yet.</td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

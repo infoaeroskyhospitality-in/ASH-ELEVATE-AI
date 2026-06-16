@@ -537,6 +537,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  // Toggle Crew Portal tabs inside Service Boy Portal
+  const sbTabButtons = document.querySelectorAll("[data-sb-tab]");
+  const sbPanels = document.querySelectorAll(".sb-panel");
+  sbTabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      sbTabButtons.forEach(b => {
+        b.classList.remove("active");
+        b.style.borderColor = "var(--border-color)";
+        b.style.background = "var(--bg-card)";
+      });
+      btn.classList.add("active");
+      btn.style.borderColor = "var(--brand-gold)";
+      btn.style.background = "var(--bg-panel)";
+      
+      const tabVal = btn.dataset.sbTab;
+      sbPanels.forEach(panel => {
+        if (panel.id === `sb-panel-${tabVal}`) {
+          panel.style.display = "block";
+        } else {
+          panel.style.display = "none";
+        }
+      });
+    });
+  });
+
   // Initialize Real-time event notifications for Admin
   if (supabaseClient) {
     supabaseClient.channel('enterprise-realtime')
@@ -890,6 +915,13 @@ function loginSuccess(user) {
     loadVendorPortalView();
   } else if (user.role === "service_boy") {
     document.getElementById("view-service-boy").classList.add("active");
+    
+    // Reset active service boy tab to Home
+    const homeTabBtn = document.getElementById("tab-sb-home");
+    if (homeTabBtn) {
+      homeTabBtn.click();
+    }
+    
     loadServiceBoyPortalView();
   }
 }
@@ -1802,7 +1834,7 @@ function loadVendorPortalView() {
   });
 }
 
-// --- Service Boy Portal View (Mobile Check-In & Schedule) ---
+// --- Service Boy Portal View (Crew Check-In, Schedule & Payouts) ---
 function loadServiceBoyPortalView() {
   if (!loggedInUser || loggedInUser.role !== "service_boy") return;
   const staffId = loggedInUser.id; // Enforce logged-in ID
@@ -1810,146 +1842,182 @@ function loadServiceBoyPortalView() {
   const staff = db.serviceBoys.find(s => s.id === staffId);
   if (!staff) return;
   
-  // Render mobile header user details
-  document.getElementById("sb-mobile-name").textContent = staff.name;
-  document.getElementById("sb-mobile-id").textContent = `Staff ID: SB-${staff.id.substr(-4).toUpperCase()}`;
-  document.getElementById("sb-mobile-avatar").textContent = staff.name.split(" ").map(n => n[0]).join("").toUpperCase();
+  // Render crew header details
+  const portalTitle = document.getElementById("sb-portal-title");
+  if (portalTitle) {
+    portalTitle.textContent = `${staff.name}'s Portal`;
+  }
   
   // Check active assignments
   const myAssignments = db.assignments.filter(a => a.serviceBoyId === staffId);
   const presentDays = myAssignments.filter(a => a.status === "present").reduce((sum, a) => sum + a.daysWorked, 0);
   const totalEarned = presentDays * staff.rate;
   
-  document.getElementById("sb-mobile-rate").textContent = "₹" + staff.rate;
-  document.getElementById("sb-mobile-days").textContent = presentDays;
-  document.getElementById("sb-mobile-total").textContent = "₹" + totalEarned.toLocaleString('en-IN');
+  // Populate Home Metrics
+  const rateVal = document.getElementById("sb-rate-val");
+  const daysVal = document.getElementById("sb-days-val");
+  const totalVal = document.getElementById("sb-total-val");
+  
+  if (rateVal) rateVal.textContent = "₹" + staff.rate;
+  if (daysVal) daysVal.textContent = presentDays + " days";
+  if (totalVal) totalVal.textContent = "₹" + totalEarned.toLocaleString('en-IN');
   
   // Check attendance widget status
-  const checkinStatus = document.getElementById("sb-mobile-checkin-status");
+  const checkinStatus = document.getElementById("sb-checkin-status");
   const checkinBtn = document.getElementById("btn-sb-checkin");
   
   // Find if there is an assignment scheduled for today (or confirmed events)
   const activeAssign = myAssignments.find(a => a.status === "assigned");
   
   if (activeAssign) {
-    checkinStatus.textContent = "Duty Logged (Pending Check-In)";
-    checkinStatus.className = "checkin-status";
-    checkinBtn.style.display = "block";
-    
-    // GPS Check-in Handler
-    checkinBtn.onclick = async () => {
-      const event = db.events.find(e => e.id === activeAssign.eventId);
-      if (!event) {
-        alert("Error: Event details not found.");
-        return;
-      }
+    if (checkinStatus) {
+      checkinStatus.textContent = "Duty Logged (Pending Check-In)";
+      checkinStatus.className = "checkin-status";
+    }
+    if (checkinBtn) {
+      checkinBtn.style.display = "block";
+      
+      // GPS Check-in Handler
+      checkinBtn.onclick = async () => {
+        const event = db.events.find(e => e.id === activeAssign.eventId);
+        if (!event) {
+          alert("Error: Event details not found.");
+          return;
+        }
 
-      checkinBtn.disabled = true;
-      checkinBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Fetching Location...`;
+        checkinBtn.disabled = true;
+        checkinBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Fetching Location...`;
 
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser. Please contact your site manager.");
-        checkinBtn.disabled = false;
-        checkinBtn.innerHTML = "Check Attendance";
-        return;
-      }
-
-      const proceedCheckin = async (assignment, verificationDetails) => {
-        assignment.status = "present";
-        try {
-          await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', assignment.id);
-          logActivity("STAFF_CHECKIN", "assignments", assignment.id, {
-            serviceBoyId: staffId,
-            eventId: assignment.eventId,
-            verification: verificationDetails
-          });
-          await loadDatabase();
-          loadServiceBoyPortalView();
-          renderAllViews();
-          alert("Attendance checked successfully! Your wage ledger is updated.");
-        } catch (err) {
-          console.error("Failed to check-in in Supabase:", err);
-          alert("Failed to save check-in details. Please try again.");
+        if (!navigator.geolocation) {
+          alert("Geolocation is not supported by your browser. Please contact your site manager.");
           checkinBtn.disabled = false;
           checkinBtn.innerHTML = "Check Attendance";
+          return;
         }
-      };
 
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const userLat = position.coords.latitude;
-          const userLng = position.coords.longitude;
-          
-          if (event.latitude === null || event.longitude === null || isNaN(event.latitude) || isNaN(event.longitude)) {
-            await proceedCheckin(activeAssign, "Bypassed GPS (No Event Coordinates Set)");
-            return;
-          }
-
-          const distance = calculateDistance(userLat, userLng, event.latitude, event.longitude);
-
-          if (distance <= 100) {
-            await proceedCheckin(activeAssign, `GPS Verified (Distance: ${Math.round(distance)}m)`);
-          } else {
-            alert(`Check-in failed. You must be at the event venue to check in.\n\nYour current location is ${Math.round(distance)} meters away from the venue.`);
+        const proceedCheckin = async (assignment, verificationDetails) => {
+          assignment.status = "present";
+          try {
+            await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', assignment.id);
+            logActivity("STAFF_CHECKIN", "assignments", assignment.id, {
+              serviceBoyId: staffId,
+              eventId: assignment.eventId,
+              verification: verificationDetails
+            });
+            await loadDatabase();
+            loadServiceBoyPortalView();
+            renderAllViews();
+            alert("Attendance checked successfully! Your wage ledger is updated.");
+          } catch (err) {
+            console.error("Failed to check-in in Supabase:", err);
+            alert("Failed to save check-in details. Please try again.");
             checkinBtn.disabled = false;
             checkinBtn.innerHTML = "Check Attendance";
+          }
+        };
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
             
-            logActivity("CHECKIN_FAILED_GPS", "assignments", activeAssign.id, {
-              serviceBoyId: staffId,
-              eventId: event.id,
-              distance: `${Math.round(distance)}m`,
-              userCoords: { latitude: userLat, longitude: userLng },
-              eventCoords: { latitude: event.latitude, longitude: event.longitude }
-            });
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          let errMsg = "Unable to retrieve your location. Please check your device location settings and permissions.";
-          if (error.code === error.PERMISSION_DENIED) {
-            errMsg = "Location permission denied. You must allow location access to check-in.";
-          }
-          alert(errMsg);
-          checkinBtn.disabled = false;
-          checkinBtn.innerHTML = "Check Attendance";
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    };
+            if (event.latitude === null || event.longitude === null || isNaN(event.latitude) || isNaN(event.longitude)) {
+              await proceedCheckin(activeAssign, "Bypassed GPS (No Event Coordinates Set)");
+              return;
+            }
+
+            const distance = calculateDistance(userLat, userLng, event.latitude, event.longitude);
+
+            if (distance <= 100) {
+              await proceedCheckin(activeAssign, `GPS Verified (Distance: ${Math.round(distance)}m)`);
+            } else {
+              alert(`Check-in failed. You must be at the event venue to check in.\n\nYour current location is ${Math.round(distance)} meters away from the venue.`);
+              checkinBtn.disabled = false;
+              checkinBtn.innerHTML = "Check Attendance";
+              
+              logActivity("CHECKIN_FAILED_GPS", "assignments", activeAssign.id, {
+                serviceBoyId: staffId,
+                eventId: event.id,
+                distance: `${Math.round(distance)}m`,
+                userCoords: { latitude: userLat, longitude: userLng },
+                eventCoords: { latitude: event.latitude, longitude: event.longitude }
+              });
+            }
+          },
+          (error) => {
+            console.error("Geolocation error:", error);
+            let errMsg = "Unable to retrieve your location. Please check your device location settings and permissions.";
+            if (error.code === error.PERMISSION_DENIED) {
+              errMsg = "Location permission denied. You must allow location access to check-in.";
+            }
+            alert(errMsg);
+            checkinBtn.disabled = false;
+            checkinBtn.innerHTML = "Check Attendance";
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      };
+    }
   } else {
     const hasPresent = myAssignments.some(a => a.status === "present");
-    checkinStatus.textContent = hasPresent ? "Checked-In (Active)" : "No Duty Assigned Today";
-    checkinStatus.className = `checkin-status ${hasPresent ? 'logged' : ''}`;
-    checkinBtn.style.display = "none";
+    if (checkinStatus) {
+      checkinStatus.textContent = hasPresent ? "Checked-In (Active)" : "No Duty Assigned Today";
+      checkinStatus.className = `checkin-status ${hasPresent ? 'logged' : ''}`;
+    }
+    if (checkinBtn) checkinBtn.style.display = "none";
   }
   
-  // Render duty schedule list
-  const list = document.getElementById("sb-mobile-duty-list");
-  list.innerHTML = "";
-  
-  if (myAssignments.length === 0) {
-    list.innerHTML = `<p class="empty-msg" style="color:#71717a;">No assignments listed.</p>`;
-    return;
+  // Render Schedule Table
+  const scheduleTbody = document.getElementById("sb-table-schedule-body");
+  if (scheduleTbody) {
+    scheduleTbody.innerHTML = "";
+    if (myAssignments.length === 0) {
+      scheduleTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No duties assigned.</td></tr>`;
+    } else {
+      myAssignments.forEach(a => {
+        const e = db.events.find(x => x.id === a.eventId) || { name: "Removed Event", venue: "N/A", date: "N/A" };
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${e.name}</strong></td>
+          <td>${e.date}</td>
+          <td>${e.venue}</td>
+          <td>${a.role}</td>
+          <td>${a.daysWorked} days</td>
+          <td>
+            <span class="badge badge-${a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}">
+              ${a.status.toUpperCase()}
+            </span>
+          </td>
+        `;
+        scheduleTbody.appendChild(tr);
+      });
+    }
   }
-  
-  myAssignments.forEach(a => {
-    const e = db.events.find(x => x.id === a.eventId) || { name: "Event", venue: "Venue", date: "Date" };
-    
-    const card = document.createElement("div");
-    card.className = "mobile-duty-card";
-    card.innerHTML = `
-      <div class="duty-hdr">
-        <div class="duty-name">${e.name}</div>
-        <span class="badge badge-${a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}">${a.status}</span>
-      </div>
-      <div class="duty-venue"><i class="ti ti-map-pin"></i> ${e.venue}</div>
-      <div class="duty-meta">
-        <span>Role: ${a.role}</span>
-        <span>Date: ${e.date}</span>
-      </div>
-    `;
-    list.appendChild(card);
-  });
+
+  // Render Payouts Table
+  const payoutsTbody = document.getElementById("sb-table-payouts-body");
+  if (payoutsTbody) {
+    payoutsTbody.innerHTML = "";
+    const presentAssignments = myAssignments.filter(a => a.status === "present");
+    if (presentAssignments.length === 0) {
+      payoutsTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No earnings logged yet.</td></tr>`;
+    } else {
+      presentAssignments.forEach(a => {
+        const e = db.events.find(x => x.id === a.eventId) || { name: "Removed Event", date: "N/A" };
+        const tr = document.createElement("tr");
+        const wage = a.daysWorked * staff.rate;
+        tr.innerHTML = `
+          <td><strong>${e.name}</strong></td>
+          <td>${e.date}</td>
+          <td>${a.role}</td>
+          <td>₹${staff.rate}/day</td>
+          <td>${a.daysWorked} days</td>
+          <td><strong>₹${wage.toLocaleString('en-IN')}</strong></td>
+        `;
+        payoutsTbody.appendChild(tr);
+      });
+    }
+  }
 }
 
 // --- Global Form Submissions Handler ---
