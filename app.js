@@ -31,7 +31,8 @@ let db = {
   vendorOrders: [],
   payments: [],
   issues: [],
-  checklist: []
+  checklist: [],
+  activityLogs: []
 };
 
 // User Credentials Directory (Authentication Database with Phone Links)
@@ -97,6 +98,191 @@ function findAccountByPhone(phoneInput) {
   return null;
 }
 
+// Calculate distance between two coordinates in meters using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  if (lat1 === null || lon1 === null || lat2 === null || lon2 === null) return Infinity;
+  const R = 6371e3; // Earth's radius in meters
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in meters
+}
+
+// Log audit trails to Supabase activity_logs table
+async function logActivity(action, targetTable, recordId, details) {
+  if (!supabaseClient) return;
+  
+  const userId = loggedInUser ? loggedInUser.id : "anonymous";
+  const userName = loggedInUser ? loggedInUser.name : "System / Anon";
+  const role = loggedInUser ? loggedInUser.role : "public";
+  
+  const logId = 'log-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  
+  try {
+    await supabaseClient.from('activity_logs').insert({
+      id: logId,
+      user_id: userId,
+      user_name: userName,
+      role: role,
+      action: action,
+      target_table: targetTable,
+      record_id: recordId,
+      details: typeof details === 'object' ? JSON.stringify(details) : details
+    });
+  } catch (err) {
+    console.error("Activity logging failed:", err);
+  }
+}
+
+// Display in-app floating Toast notifications
+function showToast(title, message, type = 'info', duration = 6000) {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+
+  const item = document.createElement("div");
+  item.className = `toast-item ${type}`;
+
+  let icon = 'ti-info-circle';
+  if (type === 'success') icon = 'ti-circle-check';
+  else if (type === 'warning') icon = 'ti-alert-triangle';
+  else if (type === 'error') icon = 'ti-circle-x';
+
+  item.innerHTML = `
+    <div class="toast-icon"><i class="ti ${icon}"></i></div>
+    <div class="toast-content">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${message}</div>
+    </div>
+    <button class="toast-close">&times;</button>
+  `;
+
+  item.querySelector(".toast-close").addEventListener("click", () => {
+    item.classList.add("closing");
+    item.addEventListener("animationend", () => item.remove());
+  });
+
+  container.appendChild(item);
+
+  setTimeout(() => {
+    if (item.parentNode) {
+      item.classList.add("closing");
+      item.addEventListener("animationend", () => item.remove());
+    }
+  }, duration);
+}
+
+// Export PDF Invoice
+function generateInvoicePDF(eventId) {
+  const event = db.events.find(e => e.id === eventId);
+  if (!event) return;
+  const client = db.clients.find(c => c.id === event.clientId) || { name: "N/A", phone: "N/A", email: "N/A" };
+  
+  const payments = db.payments.filter(p => p.eventId === eventId && p.type === "client");
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+  const outstanding = event.budget - totalPaid;
+  
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  
+  // Custom design colors (Aerosky Gold and Green accents)
+  doc.setFillColor(13, 107, 62); // Green banner
+  doc.rect(0, 0, 210, 30, 'F');
+  
+  // Header Text
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(20);
+  doc.text("AEROSKY HOSPITALITY", 15, 20);
+  doc.setFontSize(10);
+  doc.setFont("Helvetica", "normal");
+  doc.text("Event Management & Catering Specialists", 15, 26);
+  
+  // Invoice Metadata
+  doc.setTextColor(80, 80, 80);
+  doc.setFontSize(10);
+  doc.text(`Invoice No: INV-${event.id.toUpperCase().substr(2,6)}`, 140, 45);
+  doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 140, 50);
+  
+  // Client Details Section
+  doc.setTextColor(0, 0, 0);
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("CLIENT INFO:", 15, 45);
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Name: ${client.name}`, 15, 52);
+  doc.text(`Phone: ${client.phone}`, 15, 58);
+  doc.text(`Email: ${client.email}`, 15, 64);
+  
+  // Event Details Section
+  doc.setFont("Helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text("EVENT SUMMARY:", 15, 76);
+  doc.setFont("Helvetica", "normal");
+  doc.setFontSize(10);
+  doc.text(`Event Name: ${event.name}`, 15, 83);
+  doc.text(`Venue: ${event.venue}`, 15, 89);
+  doc.text(`Event Date: ${event.date}`, 15, 95);
+  doc.text(`Status: ${event.status.toUpperCase()}`, 15, 101);
+  
+  // Divider
+  doc.setDrawColor(200, 200, 200);
+  doc.line(15, 108, 195, 108);
+  
+  // Table Headers
+  doc.setFont("Helvetica", "bold");
+  doc.text("Billing Component", 15, 115);
+  doc.text("Amount", 160, 115);
+  doc.line(15, 118, 195, 118);
+  
+  // Row 1: Contract Value
+  doc.setFont("Helvetica", "normal");
+  doc.text("Event Contract Base Value", 15, 125);
+  doc.text(`INR ${event.budget.toLocaleString('en-IN')}.00`, 160, 125);
+  doc.line(15, 128, 195, 128);
+  
+  // Row 2: Payments Made (Credits)
+  doc.text("Payments Logged (Credits)", 15, 135);
+  doc.text(`INR ${totalPaid.toLocaleString('en-IN')}.00`, 160, 135);
+  doc.line(15, 138, 195, 138);
+  
+  // Final Balance Box
+  doc.setFillColor(245, 245, 245);
+  doc.rect(15, 145, 180, 20, 'F');
+  doc.setFont("Helvetica", "bold");
+  doc.text("OUTSTANDING BALANCE DUE:", 20, 157);
+  doc.text(`INR ${outstanding.toLocaleString('en-IN')}.00`, 150, 157);
+  
+  // Payment Breakdown
+  if (payments.length > 0) {
+    doc.setFontSize(11);
+    doc.text("Transaction History:", 15, 178);
+    doc.setFontSize(9);
+    doc.setFont("Helvetica", "normal");
+    
+    let yPos = 186;
+    payments.forEach((p, idx) => {
+      doc.text(`${idx + 1}. Date: ${p.date}  |  Amount: INR ${p.amount.toLocaleString('en-IN')}.00`, 15, yPos);
+      yPos += 7;
+    });
+  }
+  
+  doc.setFont("Helvetica", "italic");
+  doc.setFontSize(8);
+  doc.text("Note: This is a system generated statement. Please verify with manager for official signatures.", 15, 260);
+  doc.text("Contact support at: billing@aerosky.com | Thank you for choosing Aerosky Hospitality.", 15, 265);
+  
+  doc.save(`Aerosky_Invoice_${event.id}.pdf`);
+  logActivity("GENERATE_INVOICE", "events", event.id, { clientName: client.name, budget: event.budget });
+}
+
 let loggedInUser = null;
 let activeTempUser = null; // Stash user matching email validation before OTP is verified
 
@@ -141,7 +327,7 @@ async function loadDatabase() {
   }
   
   try {
-    // Fetch data from all 9 tables in parallel using Promise.all
+    // Fetch data from all tables in parallel using Promise.all (activity logs limited to 100)
     const [
       clientsRes,
       eventsRes,
@@ -151,7 +337,8 @@ async function loadDatabase() {
       vendorOrdersRes,
       paymentsRes,
       issuesRes,
-      checklistRes
+      checklistRes,
+      activityLogsRes
     ] = await Promise.all([
       supabaseClient.from('clients').select('*'),
       supabaseClient.from('events').select('*'),
@@ -161,7 +348,8 @@ async function loadDatabase() {
       supabaseClient.from('vendor_orders').select('*'),
       supabaseClient.from('payments').select('*'),
       supabaseClient.from('issues').select('*'),
-      supabaseClient.from('checklist').select('*')
+      supabaseClient.from('checklist').select('*'),
+      supabaseClient.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100)
     ]);
 
     // Handle any fetch errors
@@ -174,6 +362,7 @@ async function loadDatabase() {
     if (paymentsRes.error) console.error("Error fetching payments:", paymentsRes.error);
     if (issuesRes.error) console.error("Error fetching issues:", issuesRes.error);
     if (checklistRes.error) console.error("Error fetching checklist:", checklistRes.error);
+    if (activityLogsRes && activityLogsRes.error) console.error("Error fetching activity_logs:", activityLogsRes.error);
 
     // Save fetched arrays directly to local memory cache db
     db.clients = clientsRes.data || [];
@@ -185,6 +374,7 @@ async function loadDatabase() {
     db.payments = paymentsRes.data || [];
     db.issues = issuesRes.data || [];
     db.checklist = checklistRes.data || [];
+    db.activityLogs = activityLogsRes ? (activityLogsRes.data || []) : [];
 
     // Map database properties (e.g. description -> desc) if there's any naming variation
     db.vendorOrders = db.vendorOrders.map(vo => ({
@@ -202,7 +392,21 @@ async function loadDatabase() {
       venue: e.venue,
       clientId: e.client_id,
       status: e.status,
-      budget: parseFloat(e.budget) || 0
+      budget: parseFloat(e.budget) || 0,
+      latitude: parseFloat(e.latitude) || null,
+      longitude: parseFloat(e.longitude) || null
+    }));
+
+    db.activityLogs = db.activityLogs.map(al => ({
+      id: al.id,
+      userId: al.user_id,
+      userName: al.user_name,
+      role: al.role,
+      action: al.action,
+      targetTable: al.target_table,
+      recordId: al.record_id,
+      details: al.details,
+      createdAt: al.created_at
     }));
 
     db.assignments = db.assignments.map(a => ({
@@ -273,6 +477,73 @@ document.addEventListener("DOMContentLoaded", async () => {
   
   // Check auth session
   checkAuthSession();
+
+  // Toggle Custom Role input field in Add Staff modal
+  const staffRoleSelect = document.getElementById("staff-role");
+  if (staffRoleSelect) {
+    staffRoleSelect.addEventListener("change", (e) => {
+      const customGroup = document.getElementById("staff-role-custom-group");
+      const customInput = document.getElementById("staff-role-custom");
+      if (customGroup && customInput) {
+        if (e.target.value === "custom") {
+          customGroup.style.display = "block";
+          customInput.required = true;
+        } else {
+          customGroup.style.display = "none";
+          customInput.required = false;
+          customInput.value = "";
+        }
+      }
+    });
+  }
+
+  // Initialize Real-time event notifications for Admin
+  if (supabaseClient) {
+    supabaseClient.channel('enterprise-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'issues' }, async (payload) => {
+        const issue = payload.new;
+        await loadDatabase();
+        renderAllViews();
+        
+        if (loggedInUser && loggedInUser.role === 'admin') {
+          const clientName = db.clients.find(c => c.id === issue.client_id)?.name || "Client";
+          const eventName = db.events.find(e => e.id === issue.event_id)?.name || "Event";
+          showToast(
+            `Support Ticket Filed!`,
+            `${clientName} reported for "${eventName}": ${issue.description}`,
+            `warning`
+          );
+        }
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payments' }, async (payload) => {
+        const payment = payload.new;
+        await loadDatabase();
+        renderAllViews();
+        
+        if (loggedInUser && loggedInUser.role === 'admin') {
+          let source = "Transaction";
+          if (payment.type === 'client') {
+            const clientName = db.clients.find(c => c.id === payment.entity_id)?.name || "Client";
+            source = `Client ${clientName}`;
+          } else if (payment.type === 'vendor') {
+            const vendorName = db.vendors.find(v => v.id === payment.entity_id)?.name || "Vendor";
+            source = `Vendor ${vendorName}`;
+          } else if (payment.type === 'staff') {
+            const staffName = db.serviceBoys.find(s => s.id === payment.entity_id)?.name || "Staff";
+            source = `Staff ${staffName}`;
+          }
+          
+          const label = payment.type === 'client' ? 'Payment Received' : 'Payout Logged';
+          const type = payment.type === 'client' ? 'success' : 'info';
+          showToast(
+            `${label}!`,
+            `₹${parseFloat(payment.amount).toLocaleString('en-IN')} logged for ${source}.`,
+            type
+          );
+        }
+      })
+      .subscribe();
+  }
 });
 
 // --- Auth / Session Management ---
@@ -460,6 +731,10 @@ function initAppNavigation() {
       tabPanels.forEach(panel => {
         panel.classList.toggle("active", panel.id === `panel-${activeTab}`);
       });
+      
+      if (activeTab === "activity-logs") {
+        renderActivityLogsTab();
+      }
     });
   });
 
@@ -701,16 +976,19 @@ function renderEventsTab() {
           <option value="completed" ${e.status === 'completed' ? 'selected' : ''}>Completed</option>
         </select>
       </td>
-      <td class="text-right">
-        <button class="btn btn-secondary btn-sm btn-manage-ops" data-id="${e.id}"><i class="ti ti-settings"></i> Operations</button>
+      <td class="text-right" style="white-space: nowrap;">
+        <button class="btn btn-secondary btn-sm btn-manage-ops" data-id="${e.id}"><i class="ti ti-settings"></i> Ops</button>
+        <button class="btn btn-secondary btn-sm btn-generate-invoice" data-id="${e.id}"><i class="ti ti-file-text"></i> Invoice</button>
       </td>
     `;
     
     // Status Change
     tr.querySelector(".event-status-toggle").addEventListener("change", async (event) => {
+      const oldStatus = e.status;
       e.status = event.target.value;
       try {
         await supabaseClient.from('events').update({ status: e.status }).eq('id', e.id);
+        logActivity("UPDATE_EVENT_STATUS", "events", e.id, { oldStatus, newStatus: e.status, eventName: e.name });
         renderAllViews();
       } catch (err) {
         console.error("Failed to update event status in Supabase:", err);
@@ -720,6 +998,11 @@ function renderEventsTab() {
     // Manage Operations click
     tr.querySelector(".btn-manage-ops").addEventListener("click", () => {
       openOperationsModal(e.id);
+    });
+    
+    // Generate Invoice click
+    tr.querySelector(".btn-generate-invoice").addEventListener("click", () => {
+      generateInvoicePDF(e.id);
     });
     
     tbody.appendChild(tr);
@@ -747,14 +1030,15 @@ function renderStaffTab() {
     
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><strong>${s.name}</strong><br><span style="font-size:10px;color:var(--text-muted);">ID: SB-${s.id.substr(2,3).toUpperCase()}</span></td>
+      <td><strong>${s.name}</strong><br><span style="font-size:10px;color:var(--text-muted);">ID: SB-${s.id.substr(-4).toUpperCase()}</span></td>
       <td>${s.phone}</td>
       <td><span class="badge badge-info">${s.role}</span></td>
       <td>₹${s.rate}/day</td>
       <td><span class="badge badge-indigo">${activeAssignments} events</span></td>
       <td><strong>₹${earnings.toLocaleString('en-IN')}</strong></td>
-      <td class="text-right">
-        <button class="btn btn-secondary btn-sm btn-delete-staff" data-id="${s.id}"><i class="ti ti-trash"></i> Delete</button>
+      <td class="text-right" style="white-space: nowrap;">
+        <button class="btn btn-secondary btn-sm btn-view-staff-history" data-id="${s.id}"><i class="ti ti-history"></i> History</button>
+        <button class="btn btn-secondary btn-sm btn-delete-staff" data-id="${s.id}"><i class="ti ti-trash"></i></button>
       </td>
     `;
     
@@ -762,12 +1046,17 @@ function renderStaffTab() {
       if (confirm(`Remove ${s.name} from directory?`)) {
         try {
           await supabaseClient.from('service_boys').delete().eq('id', s.id);
+          logActivity("DELETE_STAFF", "service_boys", s.id, { name: s.name, role: s.role });
           await loadDatabase();
           renderAllViews();
         } catch (err) {
           console.error("Failed to delete staff in Supabase:", err);
         }
       }
+    });
+    
+    tr.querySelector(".btn-view-staff-history").addEventListener("click", () => {
+      openStaffHistoryModal(s.id);
     });
     
     tbody.appendChild(tr);
@@ -809,6 +1098,7 @@ function renderVendorsTab() {
       if (confirm(`Remove ${v.name} from vendors?`)) {
         try {
           await supabaseClient.from('vendors').delete().eq('id', v.id);
+          logActivity("DELETE_VENDOR", "vendors", v.id, { name: v.name, category: v.category });
           await loadDatabase();
           renderAllViews();
         } catch (err) {
@@ -951,12 +1241,14 @@ function loadStaffAssignmentView() {
     
     // Toggle attendance
     tr.querySelector(".toggle-attendance-btn").addEventListener("click", async () => {
+      const oldStatus = a.status;
       if (a.status === "assigned") a.status = "present";
       else if (a.status === "present") a.status = "absent";
       else a.status = "assigned";
       
       try {
         await supabaseClient.from('assignments').update({ status: a.status }).eq('id', a.id);
+        logActivity("TOGGLE_ATTENDANCE", "assignments", a.id, { oldStatus, newStatus: a.status, staffName: s.name, eventId: activeAssignEventId });
         renderAllViews();
         loadStaffAssignmentView();
       } catch (err) {
@@ -968,6 +1260,7 @@ function loadStaffAssignmentView() {
     tr.querySelector(".btn-delete-assignment").addEventListener("click", async () => {
       try {
         await supabaseClient.from('assignments').delete().eq('id', a.id);
+        logActivity("DELETE_ASSIGNMENT", "assignments", a.id, { staffName: s.name, eventId: activeAssignEventId });
         await loadDatabase();
         renderAllViews();
         loadStaffAssignmentView();
@@ -1023,6 +1316,7 @@ function loadVendorAssignmentView() {
     tr.querySelector(".btn-delete-vo").addEventListener("click", async () => {
       try {
         await supabaseClient.from('vendor_orders').delete().eq('id', vo.id);
+        logActivity("DELETE_VENDOR_ORDER", "vendor_orders", vo.id, { vendorName: v.name, eventId: activeAssignEventId });
         await loadDatabase();
         renderAllViews();
         loadVendorAssignmentView();
@@ -1325,7 +1619,7 @@ function loadServiceBoyPortalView() {
   
   // Render mobile header user details
   document.getElementById("sb-mobile-name").textContent = staff.name;
-  document.getElementById("sb-mobile-id").textContent = `Staff ID: SB-${staff.id.substr(2,3).toUpperCase()}`;
+  document.getElementById("sb-mobile-id").textContent = `Staff ID: SB-${staff.id.substr(-4).toUpperCase()}`;
   document.getElementById("sb-mobile-avatar").textContent = staff.name.split(" ").map(n => n[0]).join("").toUpperCase();
   
   // Check active assignments
@@ -1348,17 +1642,86 @@ function loadServiceBoyPortalView() {
     checkinStatus.textContent = "Duty Logged (Pending Check-In)";
     checkinStatus.className = "checkin-status";
     checkinBtn.style.display = "block";
+    
+    // GPS Check-in Handler
     checkinBtn.onclick = async () => {
-      activeAssign.status = "present";
-      try {
-        await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', activeAssign.id);
-        await loadDatabase();
-        loadServiceBoyPortalView();
-        renderAllViews();
-        alert("Attendance checked successfully! Your wage ledger is updated.");
-      } catch (err) {
-        console.error("Failed to check-in in Supabase:", err);
+      const event = db.events.find(e => e.id === activeAssign.eventId);
+      if (!event) {
+        alert("Error: Event details not found.");
+        return;
       }
+
+      checkinBtn.disabled = true;
+      checkinBtn.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Fetching Location...`;
+
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser. Please contact your site manager.");
+        checkinBtn.disabled = false;
+        checkinBtn.innerHTML = "Check Attendance";
+        return;
+      }
+
+      const proceedCheckin = async (assignment, verificationDetails) => {
+        assignment.status = "present";
+        try {
+          await supabaseClient.from('assignments').update({ status: 'present' }).eq('id', assignment.id);
+          logActivity("STAFF_CHECKIN", "assignments", assignment.id, {
+            serviceBoyId: staffId,
+            eventId: assignment.eventId,
+            verification: verificationDetails
+          });
+          await loadDatabase();
+          loadServiceBoyPortalView();
+          renderAllViews();
+          alert("Attendance checked successfully! Your wage ledger is updated.");
+        } catch (err) {
+          console.error("Failed to check-in in Supabase:", err);
+          alert("Failed to save check-in details. Please try again.");
+          checkinBtn.disabled = false;
+          checkinBtn.innerHTML = "Check Attendance";
+        }
+      };
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const userLat = position.coords.latitude;
+          const userLng = position.coords.longitude;
+          
+          if (event.latitude === null || event.longitude === null || isNaN(event.latitude) || isNaN(event.longitude)) {
+            await proceedCheckin(activeAssign, "Bypassed GPS (No Event Coordinates Set)");
+            return;
+          }
+
+          const distance = calculateDistance(userLat, userLng, event.latitude, event.longitude);
+
+          if (distance <= 100) {
+            await proceedCheckin(activeAssign, `GPS Verified (Distance: ${Math.round(distance)}m)`);
+          } else {
+            alert(`Check-in failed. You must be at the event venue to check in.\n\nYour current location is ${Math.round(distance)} meters away from the venue.`);
+            checkinBtn.disabled = false;
+            checkinBtn.innerHTML = "Check Attendance";
+            
+            logActivity("CHECKIN_FAILED_GPS", "assignments", activeAssign.id, {
+              serviceBoyId: staffId,
+              eventId: event.id,
+              distance: `${Math.round(distance)}m`,
+              userCoords: { latitude: userLat, longitude: userLng },
+              eventCoords: { latitude: event.latitude, longitude: event.longitude }
+            });
+          }
+        },
+        (error) => {
+          console.error("Geolocation error:", error);
+          let errMsg = "Unable to retrieve your location. Please check your device location settings and permissions.";
+          if (error.code === error.PERMISSION_DENIED) {
+            errMsg = "Location permission denied. You must allow location access to check-in.";
+          }
+          alert(errMsg);
+          checkinBtn.disabled = false;
+          checkinBtn.innerHTML = "Check Attendance";
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     };
   } else {
     const hasPresent = myAssignments.some(a => a.status === "present");
@@ -1402,28 +1765,52 @@ function initFormSubmissions() {
   document.getElementById("form-add-event").addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    const clientId = 'c-' + Date.now();
-    const clientName = document.getElementById("event-client-name").value;
-    const clientPhone = document.getElementById("event-client-phone").value;
-    const clientEmail = document.getElementById("event-client-email").value;
+    const clientName = document.getElementById("event-client-name").value.trim();
+    const clientPhone = document.getElementById("event-client-phone").value.trim();
+    const clientEmail = document.getElementById("event-client-email").value.trim();
     
     const eventId = 'e-' + Date.now();
-    const eventName = document.getElementById("event-name").value;
+    const eventName = document.getElementById("event-name").value.trim();
     const eventDate = document.getElementById("event-date").value;
-    const eventVenue = document.getElementById("event-venue").value;
+    const eventVenue = document.getElementById("event-venue").value.trim();
     const eventBudget = parseFloat(document.getElementById("event-budget").value) || 0;
+    const eventLat = parseFloat(document.getElementById("event-latitude").value) || null;
+    const eventLng = parseFloat(document.getElementById("event-longitude").value) || null;
     
     try {
-      await supabaseClient.from('clients').insert({ id: clientId, name: clientName, phone: clientPhone, email: clientEmail });
+      // Prevent duplication: check if client with this phone number already exists
+      let finalClientId;
+      const cleanPhone = cleanPhoneNumber(clientPhone);
+      const existingClient = db.clients.find(c => cleanPhoneNumber(c.phone) === cleanPhone);
+      
+      if (existingClient) {
+        finalClientId = existingClient.id;
+      } else {
+        finalClientId = 'c-' + Date.now();
+        await supabaseClient.from('clients').insert({ id: finalClientId, name: clientName, phone: clientPhone, email: clientEmail });
+        logActivity("REGISTER_CLIENT", "clients", finalClientId, { name: clientName, phone: clientPhone });
+      }
+      
       await supabaseClient.from('events').insert({
         id: eventId,
         name: eventName,
         date: eventDate,
         venue: eventVenue,
-        client_id: clientId,
+        client_id: finalClientId,
         status: "planning",
-        budget: eventBudget
+        budget: eventBudget,
+        latitude: eventLat,
+        longitude: eventLng
       });
+      
+      logActivity("CREATE_EVENT", "events", eventId, {
+        eventName,
+        clientName,
+        venue: eventVenue,
+        budget: eventBudget,
+        coords: { latitude: eventLat, longitude: eventLng }
+      });
+
       await loadDatabase();
       closeModal("modal-event");
       document.getElementById("form-add-event").reset();
@@ -1440,16 +1827,30 @@ function initFormSubmissions() {
     e.preventDefault();
     
     const staffId = 's-' + Date.now();
-    const name = document.getElementById("staff-name").value;
-    const phone = document.getElementById("staff-phone").value;
-    const role = document.getElementById("staff-role").value;
+    const name = document.getElementById("staff-name").value.trim();
+    const phone = document.getElementById("staff-phone").value.trim();
+    let role = document.getElementById("staff-role").value;
+    if (role === "custom") {
+      role = document.getElementById("staff-role-custom").value.trim();
+    }
     const rate = parseFloat(document.getElementById("staff-rate").value) || 0;
     
     try {
       await supabaseClient.from('service_boys').insert({ id: staffId, name: name, phone: phone, role: role, rate: rate });
+      logActivity("REGISTER_STAFF", "service_boys", staffId, { name, role, rate });
       await loadDatabase();
       closeModal("modal-staff");
       document.getElementById("form-add-staff").reset();
+      
+      // Reset custom input state
+      const customGroup = document.getElementById("staff-role-custom-group");
+      const customInput = document.getElementById("staff-role-custom");
+      if (customGroup && customInput) {
+        customGroup.style.display = "none";
+        customInput.required = false;
+        customInput.value = "";
+      }
+      
       renderAllViews();
       alert("Staff member registered!");
     } catch (err) {
@@ -1463,13 +1864,14 @@ function initFormSubmissions() {
     e.preventDefault();
     
     const vendorId = 'v-' + Date.now();
-    const name = document.getElementById("vendor-name").value;
+    const name = document.getElementById("vendor-name").value.trim();
     const category = document.getElementById("vendor-category").value;
-    const phone = document.getElementById("vendor-phone").value;
-    const email = document.getElementById("vendor-email").value;
+    const phone = document.getElementById("vendor-phone").value.trim();
+    const email = document.getElementById("vendor-email").value.trim();
     
     try {
       await supabaseClient.from('vendors').insert({ id: vendorId, name: name, category: category, phone: phone, email: email });
+      logActivity("REGISTER_VENDOR", "vendors", vendorId, { name, category });
       await loadDatabase();
       closeModal("modal-vendor");
       document.getElementById("form-add-vendor").reset();
@@ -1491,15 +1893,18 @@ function initFormSubmissions() {
     
     if (!staffId) return;
     
+    const assignmentId = 'a-' + Date.now();
     try {
       await supabaseClient.from('assignments').insert({
-        id: 'a-' + Date.now(),
+        id: assignmentId,
         service_boy_id: staffId,
         event_id: activeAssignEventId,
         role: role,
         days_worked: days,
         status: "assigned"
       });
+      const staffName = db.serviceBoys.find(s => s.id === staffId)?.name || "Staff";
+      logActivity("ASSIGN_STAFF", "assignments", assignmentId, { staffName, role, eventId: activeAssignEventId });
       await loadDatabase();
       renderAllViews();
       loadStaffAssignmentView();
@@ -1514,19 +1919,22 @@ function initFormSubmissions() {
     e.preventDefault();
     
     const vendorId = document.getElementById("assign-vendor-id").value;
-    const desc = document.getElementById("assign-vendor-desc").value;
+    const desc = document.getElementById("assign-vendor-desc").value.trim();
     const price = parseFloat(document.getElementById("assign-vendor-price").value) || 0;
     
     if (!vendorId) return;
     
+    const orderId = 'vo-' + Date.now();
     try {
       await supabaseClient.from('vendor_orders').insert({
-        id: 'vo-' + Date.now(),
+        id: orderId,
         vendor_id: vendorId,
         event_id: activeAssignEventId,
         description: desc,
         price: price
       });
+      const vendorName = db.vendors.find(v => v.id === vendorId)?.name || "Vendor";
+      logActivity("LINK_VENDOR", "vendor_orders", orderId, { vendorName, desc, price, eventId: activeAssignEventId });
       await loadDatabase();
       renderAllViews();
       loadVendorAssignmentView();
@@ -1550,15 +1958,24 @@ function initFormSubmissions() {
       return;
     }
     
+    const paymentId = 'p-' + Date.now();
     try {
       await supabaseClient.from('payments').insert({
-        id: 'p-' + Date.now(),
+        id: paymentId,
         event_id: activeAssignEventId,
         amount: amount,
         type: type,
         entity_id: entityId,
         date: new Date().toISOString().split('T')[0]
       });
+      
+      let recipientName = "Unknown";
+      if (type === "client") recipientName = db.clients.find(c => c.id === entityId)?.name || "Client";
+      else if (type === "vendor") recipientName = db.vendors.find(v => v.id === entityId)?.name || "Vendor";
+      else if (type === "staff") recipientName = db.serviceBoys.find(s => s.id === entityId)?.name || "Staff";
+      
+      logActivity("LOG_PAYMENT", "payments", paymentId, { type, amount, recipientName, eventId: activeAssignEventId });
+
       await loadDatabase();
       renderAllViews();
       loadPaymentsAssignmentView();
@@ -1576,11 +1993,12 @@ function initFormSubmissions() {
     
     const eventId = document.getElementById("issue-event-id").value;
     const clientId = loggedInUser.id; // Enforce context ID
-    const desc = document.getElementById("issue-description").value;
+    const desc = document.getElementById("issue-description").value.trim();
     
+    const issueId = 'i-' + Date.now();
     try {
       await supabaseClient.from('issues').insert({
-        id: 'i-' + Date.now(),
+        id: issueId,
         event_id: eventId,
         client_id: clientId,
         description: desc,
@@ -1588,6 +2006,9 @@ function initFormSubmissions() {
         status: "open",
         date: new Date().toISOString().split('T')[0]
       });
+      
+      logActivity("REPORT_ISSUE", "issues", issueId, { eventId, clientId, desc });
+
       await loadDatabase();
       tempIssueImages = [];
       document.getElementById("upload-thumbnails").innerHTML = "";
@@ -1613,5 +2034,86 @@ function renderAllViews() {
     renderStaffTab();
     renderVendorsTab();
     renderIssuesInboxTab();
+    renderActivityLogsTab();
   }
+}
+
+// --- Activity Logs Audit View (Admin) ---
+function renderActivityLogsTab() {
+  const tbody = document.getElementById("table-activity-logs-body");
+  if (!tbody) return;
+  tbody.innerHTML = "";
+
+  if (!db.activityLogs || db.activityLogs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg" style="text-align:center;">No audit logs recorded yet.</td></tr>`;
+    return;
+  }
+
+  db.activityLogs.forEach(al => {
+    let actionBadge = 'badge-action-other';
+    if (al.action.includes('CREATE') || al.action.includes('ADD') || al.action.includes('REGISTER')) {
+      actionBadge = 'badge-action-create';
+    } else if (al.action.includes('UPDATE') || al.action.includes('TOGGLE') || al.action.includes('EDIT') || al.action.includes('CHECKIN')) {
+      actionBadge = 'badge-action-update';
+    } else if (al.action.includes('DELETE') || al.action.includes('REMOVE') || al.action.includes('UNLINK')) {
+      actionBadge = 'badge-action-delete';
+    }
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="font-size:11px; color:var(--text-muted);">${new Date(al.createdAt).toLocaleString('en-IN')}</td>
+      <td><strong>${al.userName}</strong><br><span style="font-size:10px;color:var(--text-muted);">ID: ${al.userId}</span></td>
+      <td><span class="badge badge-info">${al.role.toUpperCase()}</span></td>
+      <td><span class="badge badge-action ${actionBadge}">${al.action}</span></td>
+      <td><span style="font-family:monospace;font-size:11px;">${al.targetTable}.${al.recordId}</span></td>
+      <td><div class="log-payload-box">${al.details || ''}</div></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// --- Open Staff History Modal ---
+function openStaffHistoryModal(staffId) {
+  const staff = db.serviceBoys.find(s => s.id === staffId);
+  if (!staff) return;
+
+  document.getElementById("staff-history-name").textContent = staff.name;
+  
+  const tbody = document.getElementById("staff-history-table-body");
+  tbody.innerHTML = "";
+
+  const myAssignments = db.assignments.filter(a => a.serviceBoyId === staffId);
+
+  if (myAssignments.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-msg" style="text-align:center;">No work history recorded yet.</td></tr>`;
+    openModal("modal-staff-history");
+    return;
+  }
+
+  myAssignments.forEach(a => {
+    const event = db.events.find(e => e.id === a.eventId) || { name: "Removed Event", date: "N/A" };
+    const wages = a.status === 'present' ? a.daysWorked * staff.rate : 0;
+    const wagesText = a.status === 'present' 
+      ? `₹${wages.toLocaleString('en-IN')}` 
+      : a.status === 'absent' 
+        ? '₹0 (Absent)' 
+        : '₹0 (Pending)';
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${event.name}</strong></td>
+      <td style="font-size:11px; color:var(--text-muted);">${event.date}</td>
+      <td>${a.role}</td>
+      <td>${a.daysWorked} days</td>
+      <td>
+        <span class="badge badge-${a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}">
+          ${a.status.toUpperCase()}
+        </span>
+      </td>
+      <td><strong>${wagesText}</strong></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  openModal("modal-staff-history");
 }

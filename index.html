@@ -119,6 +119,9 @@
             <i class="ti ti-ticket"></i> Issues Inbox
             <span class="sidebar-badge" id="issues-badge">0</span>
           </button>
+          <button class="nav-item" data-tab="activity-logs">
+            <i class="ti ti-history"></i> Activity Logs
+          </button>
         </nav>
         
         <div class="sidebar-footer">
@@ -329,6 +332,33 @@
 
             <div class="issues-inbox-grid" id="issues-inbox-list">
               <!-- Dynamically populated -->
+            </div>
+          </section>
+
+          <!-- ACTIVITY LOGS TAB -->
+          <section class="tab-panel" id="panel-activity-logs">
+            <div class="tab-header">
+              <h1>Enterprise Activity Logs</h1>
+              <p>Secure audit trails of all administrative actions and service staff activities.</p>
+            </div>
+
+            <div class="data-table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>User Profile</th>
+                    <th>Role</th>
+                    <th>Action Executed</th>
+                    <th>Target Record</th>
+                    <th>Details / Log Payload</th>
+                  </tr>
+                </thead>
+                <tbody id="table-activity-logs-body">
+                  <!-- Dynamically populated -->
+                  <tr><td colspan="6" class="empty-msg" style="text-align:center;">Loading audit trails...</td></tr>
+                </tbody>
+              </table>
             </div>
           </section>
 
@@ -582,6 +612,16 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label for="event-latitude">Venue Latitude (for GPS Check-in)</label>
+            <input type="number" id="event-latitude" class="form-control" step="any" placeholder="e.g. 28.4985" required>
+          </div>
+          <div class="form-group">
+            <label for="event-longitude">Venue Longitude (for GPS Check-in)</label>
+            <input type="number" id="event-longitude" class="form-control" step="any" placeholder="e.g. 77.1632" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label for="event-client-name">Client Name</label>
             <input type="text" id="event-client-name" class="form-control" placeholder="e.g. Ramesh Aggarwal" required>
           </div>
@@ -593,7 +633,7 @@
         <div class="form-row">
           <div class="form-group">
             <label for="event-client-email">Client Email</label>
-            <input type="email" id="event-client-email" class="form-control" placeholder="e.g. ramesh@gmail.com" required>
+            <input type="email" id="event-client-email" class="form-control" placeholder="e.g. ramesh@gmail.com">
           </div>
           <div class="form-group">
             <label for="event-budget">Client Contract Budget (₹)</label>
@@ -635,7 +675,12 @@
               <option value="Waiter">Waiter / Buffet Server</option>
               <option value="Site Manager">Site Assistant Manager</option>
               <option value="Service Boy">General Service Boy</option>
+              <option value="custom">Custom (Type below)...</option>
             </select>
+            <div id="staff-role-custom-group" style="display: none; margin-top: 10px;">
+              <label for="staff-role-custom">Enter Custom Role Name</label>
+              <input type="text" id="staff-role-custom" class="form-control" placeholder="e.g. Hostess">
+            </div>
           </div>
           <div class="form-group">
             <label for="staff-rate">Daily Rate (₹)</label>
@@ -680,7 +725,7 @@
           </div>
           <div class="form-group">
             <label for="vendor-email">Contact Email</label>
-            <input type="email" id="vendor-email" class="form-control" placeholder="e.g. info@pioneerav.com" required>
+            <input type="email" id="vendor-email" class="form-control" placeholder="e.g. info@pioneerav.com">
           </div>
         </div>
         <div class="modal-footer">
@@ -814,6 +859,42 @@
       </div>
     </div>
   </div>
+
+  <!-- 5. Staff History Modal -->
+  <div class="modal-overlay" id="modal-staff-history">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Work History: <span id="staff-history-name">Staff Name</span></h2>
+        <button class="btn-close-modal" onclick="closeModal('modal-staff-history')">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem; max-height: 400px; overflow-y: auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Event Reference</th>
+              <th>Date</th>
+              <th>Assigned Role</th>
+              <th>Days Worked</th>
+              <th>Status</th>
+              <th>Wages Earned</th>
+            </tr>
+          </thead>
+          <tbody id="staff-history-table-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-staff-history')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-Time Toast Notification Overlay -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- jsPDF Library for invoice exports -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Firebase App & Auth SDKs (Compat Version) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>

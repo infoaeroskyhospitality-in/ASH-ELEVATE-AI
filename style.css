@@ -1657,3 +1657,170 @@ body {
     overflow-y: auto;
   }
 }
+
+/* ==========================================================================
+   ENTERPRISE SCALE STYLES (Real-Time Toast Notifications & Activity Logs)
+   ========================================================================== */
+
+/* Toast Notification Overlay */
+.toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 380px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.toast-item {
+  background: var(--bg-panel);
+  border-left: 4px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  pointer-events: auto;
+  animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.25s, opacity 0.25s;
+}
+
+.toast-item.closing {
+  animation: toastSlideOut 0.25s ease forwards;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(50px) scale(0.95);
+  }
+}
+
+.toast-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.toast-content {
+  flex-grow: 1;
+}
+
+.toast-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.toast-msg {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  transition: color var(--transition-speed);
+}
+
+.toast-close:hover {
+  color: var(--text-primary);
+}
+
+/* Toast Variants */
+.toast-item.success {
+  border-left-color: var(--color-success);
+}
+.toast-item.success .toast-icon {
+  color: var(--color-success);
+}
+
+.toast-item.warning {
+  border-left-color: var(--color-warning);
+}
+.toast-item.warning .toast-icon {
+  color: var(--color-warning);
+}
+
+.toast-item.error {
+  border-left-color: var(--color-danger);
+}
+.toast-item.error .toast-icon {
+  color: var(--color-danger);
+}
+
+.toast-item.info {
+  border-left-color: var(--color-info);
+}
+.toast-item.info .toast-icon {
+  color: var(--color-info);
+}
+
+/* Activity Log specific badges & styling */
+.badge-action {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.badge-action-create {
+  background-color: var(--color-success-glow);
+  color: var(--color-success);
+}
+
+.badge-action-update {
+  background-color: var(--color-warning-glow);
+  color: var(--color-warning);
+}
+
+.badge-action-delete {
+  background-color: var(--color-danger-glow);
+  color: var(--color-danger);
+}
+
+.badge-action-other {
+  background-color: var(--brand-gold-glow);
+  color: var(--brand-gold);
+}
+
+.log-payload-box {
+  font-family: monospace;
+  font-size: 11px;
+  background-color: var(--bg-app);
+  padding: 6px 10px;
+  border-radius: var(--border-radius-sm);
+  max-width: 400px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
