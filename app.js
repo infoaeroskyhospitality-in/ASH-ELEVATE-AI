@@ -1683,13 +1683,23 @@ function loadClientPortalView() {
     pane.innerHTML = `
       <div class="client-event-header">
         <h3>${e.name}</h3>
-        <span class="badge badge-${e.status === 'completed' ? 'success' : e.status === 'confirmed' ? 'indigo' : 'warning'}">${e.status}</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span class="badge badge-${e.status === 'completed' ? 'success' : e.status === 'confirmed' ? 'indigo' : 'warning'}">${e.status}</span>
+          <button class="btn btn-secondary btn-sm btn-client-download-invoice" data-id="${e.id}" style="padding: 4px 8px; font-size: 11px; display: flex; align-items: center; gap: 4px; border: 1px solid var(--brand-gold); color: var(--brand-gold);">
+            <i class="ti ti-download"></i> Invoice
+          </button>
+        </div>
       </div>
       <div class="client-event-meta">
         <span><i class="ti ti-map-pin"></i> <strong>Venue:</strong> ${e.venue}</span>
         <span><i class="ti ti-calendar"></i> <strong>Schedule:</strong> ${e.date}</span>
       </div>
     `;
+    
+    pane.querySelector(".btn-client-download-invoice").addEventListener("click", () => {
+      generateInvoicePDF(e.id);
+    });
+    
     eventsList.appendChild(pane);
     
     // Fetch assigned service boys (Name & phone only, matching checklist security rules)
