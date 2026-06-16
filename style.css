@@ -2078,3 +2078,27 @@ body {
     display: none !important;
   }
 }
+
+/* --- Menu Dropzone & Modal --- */
+#menu-dropzone:hover {
+  border-color: var(--brand-gold) !important;
+  background: var(--brand-gold-glow) !important;
+  transform: scale(1.01);
+}
+
+@media (max-width: 768px) {
+  #modal-menu .modal-card {
+    max-width: 100% !important;
+    margin: 12px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  /* Stack event action buttons vertically on mobile */
+  .data-table td.text-right {
+    white-space: normal !important;
+  }
+  .data-table td.text-right .btn {
+    margin-bottom: 4px;
+  }
+}

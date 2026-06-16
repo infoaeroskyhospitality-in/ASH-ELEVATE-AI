@@ -400,7 +400,10 @@ async function loadDatabase() {
       status: e.status,
       budget: parseFloat(e.budget) || 0,
       latitude: parseFloat(e.latitude) || null,
-      longitude: parseFloat(e.longitude) || null
+      longitude: parseFloat(e.longitude) || null,
+      menuText: e.menu_text || null,
+      menuFileData: e.menu_file_data || null,
+      menuFileName: e.menu_file_name || null
     }));
 
     db.activityLogs = db.activityLogs.map(al => ({
@@ -1204,6 +1207,7 @@ function renderEventsTab() {
       </td>
       <td class="text-right" style="white-space: nowrap;">
         <button class="btn btn-secondary btn-sm btn-manage-ops" data-id="${e.id}"><i class="ti ti-settings"></i> Ops</button>
+        <button class="btn ${(e.menuText || e.menuFileData) ? 'btn-primary' : 'btn-secondary'} btn-sm btn-event-menu" data-id="${e.id}" title="${(e.menuText || e.menuFileData) ? 'Menu attached ✓' : 'Add Menu'}"><i class="ti ti-tools-kitchen-2"></i> Menu${(e.menuText || e.menuFileData) ? ' ✓' : ''}</button>
         <button class="btn btn-secondary btn-sm btn-generate-invoice" data-id="${e.id}"><i class="ti ti-file-text"></i> Invoice</button>
         <button class="btn btn-danger btn-sm btn-delete-event" data-id="${e.id}"><i class="ti ti-trash"></i> Delete</button>
       </td>
@@ -1225,6 +1229,11 @@ function renderEventsTab() {
     // Manage Operations click
     tr.querySelector(".btn-manage-ops").addEventListener("click", () => {
       openOperationsModal(e.id);
+    });
+    
+    // Menu Management click
+    tr.querySelector(".btn-event-menu").addEventListener("click", () => {
+      openMenuModal(e.id);
     });
     
     // Generate Invoice click
@@ -1265,6 +1274,204 @@ function renderEventsTab() {
 // Search triggers
 document.getElementById("search-events").addEventListener("input", renderEventsTab);
 document.getElementById("filter-event-status").addEventListener("change", renderEventsTab);
+
+// --- Event Menu Management ---
+let currentMenuEventId = null;
+let pendingMenuFile = null; // { name, size, dataUrl }
+
+function openMenuModal(eventId) {
+  currentMenuEventId = eventId;
+  pendingMenuFile = null;
+  
+  const evt = db.events.find(e => e.id === eventId);
+  if (!evt) return;
+  
+  // Set title
+  document.getElementById("menu-event-title").textContent = `Event: ${evt.name} — ${evt.date}`;
+  
+  // Reset input area
+  document.getElementById("menu-text-input").value = "";
+  document.getElementById("menu-file-input").value = "";
+  document.getElementById("menu-file-selected").style.display = "none";
+  
+  // Check if menu already exists
+  const hasText = evt.menuText && evt.menuText.trim();
+  const hasFile = evt.menuFileData && evt.menuFileName;
+  
+  if (hasText || hasFile) {
+    // Show current menu
+    document.getElementById("menu-current-display").style.display = "block";
+    document.getElementById("menu-input-area").style.display = "none";
+    
+    if (hasFile) {
+      document.getElementById("menu-file-preview").style.display = "block";
+      document.getElementById("menu-file-name").textContent = evt.menuFileName;
+      document.getElementById("menu-file-size").textContent = "Uploaded file";
+      document.getElementById("menu-text-preview").style.display = "none";
+    } else {
+      document.getElementById("menu-file-preview").style.display = "none";
+    }
+    
+    if (hasText) {
+      document.getElementById("menu-text-preview").style.display = "block";
+      document.getElementById("menu-text-preview").querySelector("div").textContent = evt.menuText;
+    } else {
+      document.getElementById("menu-text-preview").style.display = "none";
+    }
+  } else {
+    // No menu yet — show input area
+    document.getElementById("menu-current-display").style.display = "none";
+    document.getElementById("menu-input-area").style.display = "block";
+  }
+  
+  openModal("modal-menu");
+}
+
+// Dropzone click to open file picker
+document.getElementById("menu-dropzone").addEventListener("click", () => {
+  document.getElementById("menu-file-input").click();
+});
+
+// Drag & drop support
+const dropzone = document.getElementById("menu-dropzone");
+dropzone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropzone.style.borderColor = "var(--brand-gold)";
+  dropzone.style.background = "var(--brand-gold-glow)";
+});
+dropzone.addEventListener("dragleave", () => {
+  dropzone.style.borderColor = "var(--border-color)";
+  dropzone.style.background = "var(--bg-input)";
+});
+dropzone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropzone.style.borderColor = "var(--border-color)";
+  dropzone.style.background = "var(--bg-input)";
+  if (e.dataTransfer.files.length > 0) {
+    handleMenuFileSelect(e.dataTransfer.files[0]);
+  }
+});
+
+// File input change
+document.getElementById("menu-file-input").addEventListener("change", (e) => {
+  if (e.target.files.length > 0) {
+    handleMenuFileSelect(e.target.files[0]);
+  }
+});
+
+function handleMenuFileSelect(file) {
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    showToast("Error", "File too large. Maximum size is 5MB.", "danger");
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingMenuFile = {
+      name: file.name,
+      size: file.size,
+      dataUrl: reader.result
+    };
+    
+    document.getElementById("menu-file-selected").style.display = "block";
+    document.getElementById("menu-selected-name").textContent = file.name + " (" + formatFileSize(file.size) + ")";
+  };
+  reader.readAsDataURL(file);
+}
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
+
+// Remove selected file
+document.getElementById("btn-menu-remove-file").addEventListener("click", () => {
+  pendingMenuFile = null;
+  document.getElementById("menu-file-input").value = "";
+  document.getElementById("menu-file-selected").style.display = "none";
+});
+
+// Download existing menu file
+document.getElementById("btn-menu-download").addEventListener("click", () => {
+  const evt = db.events.find(e => e.id === currentMenuEventId);
+  if (!evt || !evt.menuFileData) return;
+  
+  const link = document.createElement("a");
+  link.href = evt.menuFileData;
+  link.download = evt.menuFileName || "menu-file";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+});
+
+// Clear menu
+document.getElementById("btn-menu-clear").addEventListener("click", async () => {
+  if (!confirm("Are you sure you want to remove the menu for this event?")) return;
+  
+  try {
+    await supabaseClient.from('events').update({
+      menu_text: null,
+      menu_file_data: null,
+      menu_file_name: null
+    }).eq('id', currentMenuEventId);
+    
+    // Update local cache
+    const evt = db.events.find(e => e.id === currentMenuEventId);
+    if (evt) {
+      evt.menuText = null;
+      evt.menuFileData = null;
+      evt.menuFileName = null;
+    }
+    
+    showToast("Success", "Menu cleared successfully.", "success");
+    logActivity("CLEAR_MENU", "events", currentMenuEventId, { eventName: evt ? evt.name : "" });
+    closeModal("modal-menu");
+    renderEventsTab();
+  } catch (err) {
+    console.error("Failed to clear menu:", err);
+    showToast("Error", "Failed to clear menu.", "danger");
+  }
+});
+
+// Save menu
+document.getElementById("btn-save-menu").addEventListener("click", async () => {
+  const menuText = document.getElementById("menu-text-input").value.trim();
+  const hasFile = pendingMenuFile !== null;
+  
+  if (!menuText && !hasFile) {
+    showToast("Warning", "Please upload a file or type the menu text.", "warning");
+    return;
+  }
+  
+  try {
+    const updatePayload = {
+      menu_text: menuText || null,
+      menu_file_data: hasFile ? pendingMenuFile.dataUrl : null,
+      menu_file_name: hasFile ? pendingMenuFile.name : null
+    };
+    
+    const { error } = await supabaseClient.from('events').update(updatePayload).eq('id', currentMenuEventId);
+    if (error) throw error;
+    
+    // Update local cache
+    const evt = db.events.find(e => e.id === currentMenuEventId);
+    if (evt) {
+      evt.menuText = menuText || null;
+      evt.menuFileData = hasFile ? pendingMenuFile.dataUrl : null;
+      evt.menuFileName = hasFile ? pendingMenuFile.name : null;
+    }
+    
+    showToast("Success", "Menu saved successfully!", "success");
+    logActivity("SAVE_MENU", "events", currentMenuEventId, { eventName: evt ? evt.name : "", hasFile, hasText: !!menuText });
+    closeModal("modal-menu");
+    renderEventsTab();
+  } catch (err) {
+    console.error("Failed to save menu:", err);
+    showToast("Error", "Failed to save menu. Make sure menu_text, menu_file_data, and menu_file_name columns exist in the events table.", "danger");
+  }
+});
 
 // --- Staff / Service Boys Directory Rendering ---
 function renderStaffTab() {
