@@ -38,13 +38,14 @@ let db = {
 
 // User Credentials Directory (Authentication Database with Phone Links)
 const userAccounts = {
-  "admin@aerosky.com": { password: "admin123", name: "Aerosky Admin", role: "admin", id: "admin-root", phone: "+919811339509" }
+  "admin@aerosky.com": { password: "878545", name: "Aerosky Admin", role: "admin", id: "admin-root", phone: "9811339509" }
 };
 
-// Clean and format phone number for exact comparison (e.g. remove spaces, dashes)
+// Clean and format phone number for exact comparison (e.g. remove spaces, dashes, match last 10 digits)
 function cleanPhoneNumber(phone) {
   if (!phone) return "";
-  return phone.replace(/[\s\-\(\)]/g, "");
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : digits;
 }
 
 // Dynamic user accounts resolver by Phone Number
