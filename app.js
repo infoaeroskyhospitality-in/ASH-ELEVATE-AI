@@ -2389,7 +2389,9 @@ function initFormSubmissions() {
         venue: eventVenue,
         client_id: finalClientId,
         status: "planning",
-        budget: eventBudget
+        budget: eventBudget,
+        latitude: eventLat,
+        longitude: eventLng
       });
       
       logActivity("CREATE_EVENT", "events", eventId, {
@@ -2787,6 +2789,12 @@ function renderLeadsTab() {
         if (newStatus === "approved" || newStatus === "booked") {
           const existingEvent = db.events.find(evt => evt.id === eventId);
           if (!existingEvent) {
+            // Prompt user for coordinates
+            const latVal = prompt(`Enter Venue Latitude for ${inq.name}'s event (optional):`, "28.6139");
+            const lngVal = prompt(`Enter Venue Longitude for ${inq.name}'s event (optional):`, "77.2090");
+            const latitude = latVal ? parseFloat(latVal) : null;
+            const longitude = lngVal ? parseFloat(lngVal) : null;
+
             // Prevent duplication: check if client with this phone number already exists
             const cleanPhone = cleanPhoneNumber(inq.phone);
             let finalClientId = null;
@@ -2825,7 +2833,9 @@ function renderLeadsTab() {
               venue: inq.venue || 'TBD',
               client_id: finalClientId,
               status: "confirmed",
-              budget: inq.budget || 0
+              budget: inq.budget || 0,
+              latitude: latitude,
+              longitude: longitude
             });
             if (eventError) throw eventError;
 
