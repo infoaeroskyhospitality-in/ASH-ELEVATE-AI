@@ -2389,9 +2389,7 @@ function initFormSubmissions() {
         venue: eventVenue,
         client_id: finalClientId,
         status: "planning",
-        budget: eventBudget,
-        latitude: eventLat,
-        longitude: eventLng
+        budget: eventBudget
       });
       
       logActivity("CREATE_EVENT", "events", eventId, {
@@ -2827,9 +2825,7 @@ function renderLeadsTab() {
               venue: inq.venue || 'TBD',
               client_id: finalClientId,
               status: "confirmed",
-              budget: inq.budget || 0,
-              latitude: null,
-              longitude: null
+              budget: inq.budget || 0
             });
             if (eventError) throw eventError;
 
