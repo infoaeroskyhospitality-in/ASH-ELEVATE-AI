@@ -2535,6 +2535,50 @@ function renderLeadsTab() {
         inq.status = newStatus;
         await supabaseClient.from('inquiries').update({ status: newStatus }).eq('id', inq.id);
         logActivity("UPDATE_LEAD_STATUS", "inquiries", inq.id, { status: newStatus, name: inq.name });
+        
+        if (newStatus === "approved" || newStatus === "booked") {
+          const eventId = 'e-' + inq.id;
+          const existingEvent = db.events.find(evt => evt.id === eventId);
+          if (!existingEvent) {
+            // Prevent duplication: check if client with this phone number already exists
+            const cleanPhone = cleanPhoneNumber(inq.phone);
+            let finalClientId = null;
+            const existingClient = db.clients.find(c => cleanPhoneNumber(c.phone) === cleanPhone);
+            if (existingClient) {
+              finalClientId = existingClient.id;
+            } else {
+              finalClientId = 'c-' + Date.now();
+              await supabaseClient.from('clients').insert({
+                id: finalClientId,
+                name: inq.name,
+                phone: inq.phone,
+                email: inq.email || null
+              });
+              logActivity("REGISTER_CLIENT", "clients", finalClientId, { name: inq.name, phone: inq.phone });
+            }
+
+            const eventName = `${inq.name}'s ${inq.eventType || 'Event'}`;
+            await supabaseClient.from('events').insert({
+              id: eventId,
+              name: eventName,
+              date: inq.date || new Date().toISOString().split('T')[0],
+              venue: inq.venue || 'TBD',
+              client_id: finalClientId,
+              status: "confirmed",
+              budget: inq.budget || 0,
+              latitude: null,
+              longitude: null
+            });
+            logActivity("CREATE_EVENT", "events", eventId, {
+              eventName,
+              clientName: inq.name,
+              venue: inq.venue || 'TBD',
+              budget: inq.budget || 0
+            });
+            showToast("Event Created", `Event created for ${inq.name}`, "success");
+          }
+        }
+        
         showToast("Lead Status Updated", `Lead for ${inq.name} is now ${newStatus.toUpperCase()}`, "success");
         await loadDatabase();
         renderAllViews();
